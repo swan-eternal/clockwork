@@ -1,14 +1,14 @@
 [gd_scene load_steps=4 format=3]
 
-# Clockwork main scene — entry point for the level.
-#
-# Hierarchy:
-#   Main (Node2D)
-#     Walls (Node2D)              <-- rotates 90° per clock tick (Task 4)
-#       Top, Bottom, Left, Right  <-- StaticBody2D walls enclosing the play area
-#     Player (CharacterBody2D)    <-- stays in world space; gravity stays
-#                                     Vector2.DOWN; player input remaps to
-#                                     current gravity direction (Task 4)
+; Clockwork main scene — entry point for the level.
+;
+; Hierarchy:
+;   Main (Node2D)
+;     Walls (Node2D)              <-- rotates 90° per clock tick (Task 4)
+;       Top, Bottom, Left, Right  <-- StaticBody2D walls enclosing the play area
+;     Player (CharacterBody2D)    <-- stays in world space; gravity stays
+;                                     Vector2.DOWN; player input remaps to
+;                                     current gravity direction (Task 4)
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 
