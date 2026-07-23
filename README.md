@@ -4,7 +4,7 @@
 
 ## Status
 
-Phase 0 (scaffolding). Godot 4.7 project initialized in `clockwork/`. README written, repo not yet initialized.
+Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), 4 enclosing walls (square 568×568 inner play area), clock UI (CanvasLayer + Label counting 10→0), Walls rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the Walls node). **Next layer:** tilemap-based levels (Jason evaluating open-source tilesets) + four system designs locked in below (victory flag, death, main menu + level select, level template).
 
 ## Concept
 
@@ -16,101 +16,140 @@ The player is a small blob (sprite art later by Jason in LibreSprite). Levels ar
 
 1. **Read** the level — see where the flag is relative to the player and the platforms.
 2. **Move** with simple platformer controls (left/right + jump). Gravity currently points one of the four cardinal directions.
-3. **Watch the clock** — when it hits zero, the world rotates 90° (default; see Open Questions). The blob falls toward the new "down".
+3. **Watch the clock** — when it hits zero, the world rotates 90°. The blob falls toward the new "down".
 4. **Adapt** — what was a floor is now a wall. Re-plan your route.
 5. **Reach the flag** — touch it to win the level.
+6. **Restart or advance** — death resets the level; reaching the flag advances to the next (L1 → L2 → L3 → end).
 
 ## Locked Mechanics
 
 - **Single screen** — no scrolling, no transitions. One screen = one level.
 - **Clock is the timer and the trigger.** When it hits zero, gravity rotates.
-- **Rotating gravity is the only verb.** No enemies, no hazards, no powerups (this jam).
-- **Win by touching the flag.** That's it.
+- **Rotating gravity is the only verb.** No enemies, no powerups in the jam scope. Hazards (spikes) exist for the death system but are static tiles, not actors.
+- **Win by touching the flag.** Touch-to-win, no additional interaction.
+- **Death = full level reset.** Player respawns at spawn, clock resets to 10, no checkpoints. Levels are short, so the reset cost is fine.
+- **Levels inherit from a single template.** All 3 levels (L1/L2/L3) are inherited scenes from `scenes/level_template.tscn` — same architecture, only the level-specific bits (tiles, flag position, player spawn, clock duration) vary.
+- **Polish matters even for the jam.** Menu + level select get styled buttons, fade transitions, hover/click feedback — not just functional gray buttons. (Per Jason, 2026-07-23.)
 
 ## Open Questions
 
-- **Clock duration.** 10s default, but probably needs to vary per level (or stay constant — decide by playtest).
-- **Rotation amount per tick.** Defaulting to 90° (4 distinct gravity states per cycle). 180° is simpler (2 states) but less interesting. Lock once we have a test level.
-- **Cumulative vs. resetting rotation.** Each tick rotates the world 90° from its current orientation (so over 4 ticks you've done a full revolution), vs. snapping back to a fixed orientation each tick. Cumulative feels more chaotic and platformery; resetting feels more predictable and timing-focused. **Leaning cumulative.**
-- **Win condition strictness.** Reach the flag at any time during the countdown, OR reach it before N total rotations elapse (i.e. the clock also counts down to "level failed"). The first is pure puzzle; the second adds urgency. **Leaning pure puzzle** for the jam — keep it about reading the rotation, not reaction speed.
-- **Number of rotations per level.** Some levels may need 1-2 rotations to solve; others may need 4-6. Decide per level once we know the mechanic's feel.
+- **Clock duration.** 10s default for L1; can vary per level via `@export var STARTING_SECONDS` on the ClockUI node. Lock in when we playtest L1.
+- **Tilemap source.** Jason looking at open-source options (Kenney is the strongest free source — CC0, no attribution hassle). OpenGameArt + itch.io packs as alternatives. Lock in once chosen — affects tile size, palette, what the TileSet looks like.
+- **Cumulative vs. resetting rotation.** Each tick rotates the world 90° from its current orientation (full revolution over 4 ticks) vs. snapping back to a fixed orientation each tick. **Leaning cumulative** — feels more chaotic and platformery.
 
-## Technical Approach: Rotate the World vs. Rotate the Gravity Vector
+## Technical Approach: Rotate the World (Around the Play Area Center)
 
-The visual effect of "gravity rotates" can be achieved two ways. Jason flagged this as an open decision; here's my recommendation:
+The visual effect of "gravity rotates" is achieved by rotating the level wrapper (`Walls` Node2D) around its position `(576, 324)` — the play area center. Walls contain the 4 wall StaticBody2Ds at local positions `(-304, 0)`, `(304, 0)`, `(0, -304)`, `(0, 304)` so they spin in place. The Player, ClockUI, and (eventual) Camera2D are **siblings** of Walls, not children, so they stay in world / screen space — the world tumbles around them, not the other way around.
 
-### Option A: Rotate the level (world root Node2D), keep gravity static.
+**Why pivot at the play area center, not at world origin:** the pivot has to be where the geometry is. With Walls at `(576, 324)` and walls in local coords near that, the frame spins in place. With Walls at `(0, 0)`, walls would have to be near origin (off-screen by default) and require a Camera2D + position shifting. The current setup needs no camera math. TileMapLayer doesn't change this — cell coordinates are local to the TileMapLayer's grid origin, set once and forgotten.
 
-- The level root rotates 90° around the level's center. Platforms visually tilt and become walls / ceilings.
-- Camera stays fixed (doesn't rotate with the world) so the player sees the tilt happen.
-- Player input is remapped to the *current* gravity direction: pressing "right" always pushes the blob toward whatever is currently "down's right" in world space.
-- Pros: visually striking — the whole world tumbles. Easy to reason about level geometry (each platform is a fixed child of the rotating world).
-- Cons: input remapping needs care so the controls feel right after each rotation.
+**Why we picked rotate-the-world over rotate-the-gravity-vector:** the visual drama of watching platforms tumble is what makes this concept feel like a game rather than a physics demo. Input remapping is a one-line lookup against a `GravityDirection` enum; the complication is small, the payoff large.
 
-### Option B: Rotate the gravity vector, keep the level static.
-
-- Level geometry never moves. The physics gravity vector rotates 90° around the level center. Player falls toward the new "down".
-- Camera stays fixed (no rotation).
-- Pros: simplest mechanically — input is always screen-relative. No remapping.
-- Cons: less visually striking. The "world" doesn't visibly change; only the blob's fall direction does.
-
-### Recommendation: Option A (rotate the world).
-
-The visual drama of watching platforms tumble into new positions is what makes this concept feel like a game rather than a physics demo. Input remapping is a one-line lookup against a `GravityDirection` enum (`DOWN`, `LEFT`, `UP`, `RIGHT`). The complication is small; the payoff is large.
+**Input remapping (TODO before L1 ships):** Player input is currently screen-relative, so pressing "right" after a 90° rotation sends the player in the wrong direction relative to the new ground. Needs remapping against a `GravityDirection` enum — about 20 lines in `player.gd`.
 
 ## Levels / Teaching Ramp
 
-Single-screen levels, each builds on the previous. The mechanic is so simple that the **teaching ramp is mostly about level design** — introducing new platform layouts that make rotation a meaningful puzzle.
+Single-screen levels, each inherits from `scenes/level_template.tscn` and only varies the level-specific bits. The teaching ramp is mostly about level design — introducing platform layouts that make rotation a meaningful puzzle.
 
-- **L1: First rotation.** One straight gap the player needs to cross. After one rotation, the gap is now a wall to climb. Goal: prove the mechanic is readable.
+- **L1: First rotation.** One straight gap the player needs to cross. After one rotation, the gap is now a wall to climb. Goal: prove the mechanic is readable end-to-end.
 - **L2: Corner puzzle.** Two platforms at right angles. Player must wait for a rotation to make the second platform reachable.
 - **L3: Multi-step.** Three or four rotations needed. Pattern emerges: route through the level by sequencing your moves between ticks.
-- **L4+:** Jam scope permitting — more complex layouts, maybe a level where rotation goes BACKWARDS or skips.
+
+## Systems
+
+Four cross-level systems, designed up-front so they slot into the level template cleanly.
+
+### Victory Flag
+
+- `flag.tscn` — Area2D root with `CollisionShape2D` (rectangle) + `Polygon2D` visual (placeholder until art lands).
+- Detects the player via `body_entered` + `is_in_group("player")` check (player was added to the group in Task 1 specifically to support this — per the MEMORY.md lesson on co-adding group checks).
+- Emits a `player_won` signal.
+- The level scene's `level.gd` catches the signal and runs the win flow: stop the clock, fade in `LevelCompleteUI`, wait for input, advance to the next level.
+- Touch-to-win only. No "lower the flag" animation, no collectible sub-flags.
+
+### Death System
+
+- Death sources are `Area2D` nodes in the `death_zones` group. The first concrete instance will be spike tiles on the TileMap (custom metadata or a dedicated spike scene). Future pits, etc., follow the same pattern.
+- Player's `_on_area_entered` checks `is_in_group("death_zones")` and calls `_die()`.
+- Death flow: brief input disable → visual feedback (flash, hide) → reset the level (player position + clock back to 10).
+- Full level reset on every death, no checkpoints. Levels are short enough that the cost is fine and the design is simpler.
+
+### Main Menu + Level Select
+
+- Separate scenes: `main_menu.tscn` (start) → click to start → `scenes/levels/L1.tscn` → ... → `scenes/levels/L3.tscn` → end screen.
+- Transitions via `get_tree().change_scene_to_file(...)`.
+- **Eventually:** real level select screen showing L1/L2/L3 with completion state. For the jam scope, just start → L1 → L2 → L3.
+- **Polish matters** (per Jason, 2026-07-23): styled buttons, hover/click feedback, fade transitions between screens. Don't ship unstyled gray buttons.
+
+### Level Template (Godot Inherited Scenes)
+
+- `scenes/level_template.tscn` is the parent scene. It contains the full level architecture: `Level` (Node2D + `level.gd` orchestrator script), `Walls` (with `walls.gd` rotation script), `TileMapLayer` (empty, ready to paint), `Flag`, `Player`, `ClockUI`, `LevelCompleteUI`.
+- Each level (`L1.tscn`, `L2.tscn`, `L3.tscn`) is created via **File → New Inherited Scene from `level_template.tscn`**. Editing the inherited scene only touches level-specific bits: tile placements, Flag position, Player spawn, ClockUI's `STARTING_SECONDS`.
+- **Why inherited scenes vs. copy-paste:** changes to the template (e.g., adding the death system later) propagate to all levels automatically. No risk of forgetting to update L2 when L1 gets a new feature. For 3 levels it's marginal benefit, but it pays off fast as we iterate.
 
 ## Tech Stack
 
 - **Engine:** Godot 4.7 (2D), Forward+ renderer, Jolt 3D physics (default; 2D uses Godot Physics 2D which is unaffected by the Jolt setting).
 - **Language:** GDScript.
 - **Art:** Placeholder shapes during development; final pixel art by Jason in LibreSprite, dropped into `assets/sprites/`.
-- **Project structure:** Single scene `main.tscn` per level (or one shared scene with level data). TBD once we have the player + clock working.
+- **Tilemaps:** TBD — Jason evaluating open-source tilesets (Kenney is the strongest free source — CC0, no attribution hassle). Lock in once chosen.
+- **Project structure:** Each level is an inherited scene from `scenes/level_template.tscn`. Levels live in `scenes/levels/`.
 
 ## MVP (Minimum Viable Product)
 
-- [ ] Clock UI (label + countdown animation, top center of screen)
-- [ ] Player blob (CharacterBody2D, placeholder circle, basic left/right + jump)
-- [ ] Level rotation (90° per clock tick, smooth or snap)
-- [ ] Gravity follows rotation (player falls toward new "down")
-- [ ] Input remapping so controls feel correct post-rotation
-- [ ] Flag (Area2D, touches → win)
-- [ ] Win screen / next-level transition
-- [ ] L1 playable end-to-end
+Skeleton (shipped 2026-07-23):
+- [x] Clock UI (CanvasLayer + Label, top center, 10s countdown, `@export var STARTING_SECONDS`)
+- [x] Player blob (CharacterBody2D, placeholder Polygon2D visual, left/right + jump + gravity, in "player" group)
+- [x] 4 enclosing walls (StaticBody2D + Polygon2D visual, square 568×568 play area)
+- [x] Walls rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on Walls)
+
+Skeleton follow-ups:
+- [ ] Input remapping so "right" feels right after rotation (GravityDirection enum, ~20 lines in player.gd)
+- [ ] Swap Polygon2D player visual for AnimatedSprite2D when art lands
+
+Systems (designed, not yet implemented):
+- [ ] `flag.tscn` (Area2D + visual + `player_won` signal)
+- [ ] `level.gd` orchestrator (catches flag/died signals, runs win/reset flow)
+- [ ] Death zones (Area2D group + spike prototype)
+- [ ] `level_complete_ui.tscn` (CanvasLayer + fade-in animation + click-to-continue)
+- [ ] `main_menu.tscn` (styled start button + fade transition)
+- [ ] `level_select.tscn` (L1/L2/L3 list with completion state — built before final ship)
+- [ ] `scenes/level_template.tscn` (parent scene that L1/L2/L3 inherit from)
+
+Levels (placeholder tilemaps until Jason picks a tileset):
+- [ ] L1 playable end-to-end (via inherited scene from template)
 - [ ] L2 playable end-to-end
 - [ ] L3 playable end-to-end
 
 ## Out of Scope (This Jam)
 
-- Enemies, hazards, powerups.
+- Enemies, powerups.
 - Multiple flags per level / branching paths.
 - Persistent unlocks / meta-progression.
-- Audio (defer to last if time permits).
 - Custom rotation angles (only 90° / cardinal directions).
-- Variable clock duration (TBD — locked once we playtest L1).
+- Audio (defer to last if time permits; not part of MVP).
 
 ## Risks
 
-- **Input feel after rotation.** If "right" doesn't feel like "right" after a 90° rotation, the game is unplayable. *Mitigation:* remap early; playtest the input feel before building levels.
-- **Rotation timing.** Too fast = chaotic, too slow = boring. *Mitigation:* make clock duration an @export on the level scene so we can tune in seconds.
-- **Camera framing.** The blob can drift off-screen when gravity changes. *Mitigation:* Camera2D with limits tied to the level bounds, never rotates with the world.
-- **Scope creep.** Tempting to add enemies or hazards once the basic loop works. *Mitigation:* MVP checklist is the contract; defer anything else.
+- **Input feel after rotation.** Without remapping, pressing "right" after a 90° rotation sends the player in the wrong direction. *Mitigation:* remap before building levels so playtesting is meaningful.
+- **Tilemap dependency.** Level design can't start until tilemaps are picked. *Mitigation:* pick tileset early; build the level template with placeholder tiles in the meantime.
+- **Polish overhead on menus.** "Don't skip polish" could eat time. *Mitigation:* polish the menu/select as a single design pass once they're functional, not iteratively per-feature.
+- **Scope creep via hazards.** Death system is meant for spikes + pits; temptation to add moving hazards, projectiles, etc. *Mitigation:* stick to static spike tiles for the jam; defer anything else.
 
 ## Backlog
 
 *(Grows as we work. Highest priority first.)*
 
-- [ ] Lock the 4 open questions above (clock duration, rotation amount, cumulative vs resetting, win strictness) — call it after L1 is playable.
-- [ ] Decide the level-data model (one .tscn per level vs. data-driven)
-- [ ] Audio (SFX for tick, win, rotate)
-- [ ] Visual polish on rotation (camera shake? quick zoom?)
-- [ ] More levels beyond L3 if jam scope allows
+- [ ] Input remapping (GravityDirection enum + remapped player input)
+- [ ] `level.gd` orchestrator script (catches Flag.player_won, Player.died)
+- [ ] `flag.tscn` (reusable flag area scene)
+- [ ] `scenes/level_template.tscn` (parent scene for L1/L2/L3)
+- [ ] Death zone prototype + spike tile (Area2D in `death_zones` group)
+- [ ] `level_complete_ui.tscn` (fade-in win screen)
+- [ ] `main_menu.tscn` (styled start button + fade transition)
+- [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
+- [ ] Audio (SFX for tick, win, die, rotate)
+- [ ] Visual polish on rotation (camera shake? quick zoom? particles?)
+- [ ] AnimatedSprite2D swap when player art lands
 - [ ] Tutorial / first-30-seconds UX
 - [ ] Jam submission checklist — web build, trailer, itch.io page
