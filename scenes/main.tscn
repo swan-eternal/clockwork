@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/clock_ui.tscn" id="2_clock"]
+[ext_resource type="Script" path="res://scripts/walls.gd" id="3_walls"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_h"]
 size = Vector2(608, 40)
@@ -12,9 +13,11 @@ size = Vector2(40, 608)
 [node name="Main" type="Node2D"]
 
 [node name="Walls" type="Node2D" parent="."]
+position = Vector2(576, 324)
+script = ExtResource("3_walls")
 
 [node name="Top" type="StaticBody2D" parent="Walls"]
-position = Vector2(576, 20)
+position = Vector2(0, -304)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Top"]
 shape = SubResource("RectangleShape2D_wall_h")
@@ -24,7 +27,7 @@ color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-304, -20, 304, -20, 304, 20, -304, 20)
 
 [node name="Bottom" type="StaticBody2D" parent="Walls"]
-position = Vector2(576, 628)
+position = Vector2(0, 304)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Bottom"]
 shape = SubResource("RectangleShape2D_wall_h")
@@ -34,7 +37,7 @@ color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-304, -20, 304, -20, 304, 20, -304, 20)
 
 [node name="Left" type="StaticBody2D" parent="Walls"]
-position = Vector2(272, 324)
+position = Vector2(-304, 0)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Left"]
 shape = SubResource("RectangleShape2D_wall_v")
@@ -44,7 +47,7 @@ color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-20, -304, 20, -304, 20, 304, -20, 304)
 
 [node name="Right" type="StaticBody2D" parent="Walls"]
-position = Vector2(880, 324)
+position = Vector2(304, 0)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Right"]
 shape = SubResource("RectangleShape2D_wall_v")
