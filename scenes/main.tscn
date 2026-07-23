@@ -1,19 +1,10 @@
 [gd_scene load_steps=4 format=3]
 
-; Clockwork main scene — entry point for the level.
-;
-; Hierarchy:
-;   Main (Node2D)
-;     Walls (Node2D)              <-- rotates 90° per clock tick (Task 4)
-;       Top, Bottom, Left, Right  <-- StaticBody2D walls enclosing the play area
-;     Player (CharacterBody2D)    <-- stays in world space; gravity stays
-;                                     Vector2.DOWN; player input remaps to
-;                                     current gravity direction (Task 4)
-
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/clock_ui.tscn" id="2_clock"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_h"]
-size = Vector2(1112, 40)
+size = Vector2(608, 40)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_v"]
 size = Vector2(40, 608)
@@ -30,7 +21,7 @@ shape = SubResource("RectangleShape2D_wall_h")
 
 [node name="Visual" type="Polygon2D" parent="Walls/Top"]
 color = Color(0.5, 0.5, 0.55, 1)
-polygon = PackedVector2Array(-556, -20, 556, -20, 556, 20, -556, 20)
+polygon = PackedVector2Array(-304, -20, 304, -20, 304, 20, -304, 20)
 
 [node name="Bottom" type="StaticBody2D" parent="Walls"]
 position = Vector2(576, 628)
@@ -40,10 +31,10 @@ shape = SubResource("RectangleShape2D_wall_h")
 
 [node name="Visual" type="Polygon2D" parent="Walls/Bottom"]
 color = Color(0.5, 0.5, 0.55, 1)
-polygon = PackedVector2Array(-556, -20, 556, -20, 556, 20, -556, 20)
+polygon = PackedVector2Array(-304, -20, 304, -20, 304, 20, -304, 20)
 
 [node name="Left" type="StaticBody2D" parent="Walls"]
-position = Vector2(20, 324)
+position = Vector2(272, 324)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Left"]
 shape = SubResource("RectangleShape2D_wall_v")
@@ -53,7 +44,7 @@ color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-20, -304, 20, -304, 20, 304, -20, 304)
 
 [node name="Right" type="StaticBody2D" parent="Walls"]
-position = Vector2(1132, 324)
+position = Vector2(880, 324)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Right"]
 shape = SubResource("RectangleShape2D_wall_v")
@@ -64,3 +55,5 @@ polygon = PackedVector2Array(-20, -304, 20, -304, 20, 304, -20, 304)
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 position = Vector2(400, 324)
+
+[node name="ClockUI" parent="." instance=ExtResource("2_clock")]
