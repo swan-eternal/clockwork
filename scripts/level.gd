@@ -29,10 +29,11 @@ func _on_player_won() -> void:
 	# moment of victory.
 	_clock.pause()
 	# Mark this level complete for the level select screen's progress
-	# indicator. Uses the current scene's file path as the key, so
-	# the same level select screen works for any number of levels
-	# without hardcoding names.
-	ProgressTracker.mark_completed(scene.file_path)
+	# indicator. Uses this node's scene_file_path (the .tscn this
+	# scene was loaded from, e.g. "res://scenes/levels/L1.tscn") as
+	# the key, so the level select screen works for any number of
+	# levels without hardcoding names.
+	ProgressTracker.mark_completed(scene_file_path)
 	# Hand off to the LevelCompleteUI. It handles the fade-in, the
 	# input wait, and emits `continue_pressed` when the player
 	# confirms. We just await that signal to know when to advance.
