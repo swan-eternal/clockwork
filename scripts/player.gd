@@ -80,19 +80,59 @@ func _physics_process(delta: float) -> void:
 			_print_debug_state()
 
 func _get_current_friction() -> float:
-	# Read the tile at the player's BOTTOM, not the center. The center
-	# sits in the air cell above the platform (no tile data); the bottom
-	# is on the actual floor cell. Without this offset, every surface
-	# reads as friction 1.0 (the default) regardless of tile data.
-	# to_local + local_to_map handle the rotating world's transform.
+	# Scan a 3x3 grid of cells around the player's bottom cell. This
+	# catches:
+	#   - Slope joints: cell directly under the player is the V (no
+	#     tile data) but the slope cells are adjacent — the single-cell
+	#     query missed them.
+	#   - Players straddling cell boundaries.
+	#   - Mixed surfaces (e.g., foot on ice, foot on dirt).
+	#
+	# Returns the LOWEST friction found — the most slippery surface
+	# in contact. Default 1.0 (no data) doesn't affect the MIN as long
+	# as the actual ground has a lower value, so V cells at slope joints
+	# don't poison the result.
 	if not _tile_map:
 		return 1.0
+	var center_cell := _get_bottom_cell()
+	var min_friction := 1.0
+	for dx in [-1, 0, 1]:
+		for dy in [-1, 0, 1]:
+			var cell := center_cell + Vector2i(dx, dy)
+			var tile_data := _tile_map.get_cell_tile_data(cell)
+			if tile_data and tile_data.has_custom_data("friction"):
+				var f := float(tile_data.get_custom_data("friction"))
+				min_friction = minf(min_friction, f)
+	return min_friction
+
+func _get_friction_info() -> Dictionary:
+	# Same as _get_current_friction() but also returns the contact cell
+	# (the cell that contributed the lowest friction). Used by the
+	# debug print so you can see when contact_cell != bottom_cell
+	# (i.e., the player is at a slope joint or straddling cells).
+	if not _tile_map:
+		return {"friction": 1.0, "contact_cell": Vector2i.ZERO}
+	var center_cell := _get_bottom_cell()
+	var result := {"friction": 1.0, "contact_cell": center_cell}
+	for dx in [-1, 0, 1]:
+		for dy in [-1, 0, 1]:
+			var cell := center_cell + Vector2i(dx, dy)
+			var tile_data := _tile_map.get_cell_tile_data(cell)
+			if tile_data and tile_data.has_custom_data("friction"):
+				var f := float(tile_data.get_custom_data("friction"))
+				if f < result["friction"]:
+					result["friction"] = f
+					result["contact_cell"] = cell
+	return result
+
+func _get_bottom_cell() -> Vector2i:
+	# Returns the cell at the player's bottom (not center). The center
+	# sits in the air cell above the platform; the bottom is on the
+	# actual floor cell. Used as the 3x3 scan center.
+	if not _tile_map:
+		return Vector2i.ZERO
 	var local_pos := _tile_map.to_local(global_position + Vector2(0, _get_bottom_offset()))
-	var cell := _tile_map.local_to_map(local_pos)
-	var tile_data := _tile_map.get_cell_tile_data(cell)
-	if tile_data and tile_data.has_custom_data("friction"):
-		return tile_data.get_custom_data("friction")
-	return 1.0
+	return _tile_map.local_to_map(local_pos)
 
 func _get_bottom_offset() -> float:
 	# y-offset from the player's center to the bottom of its collider.
@@ -129,19 +169,20 @@ func _apply_slope_slide(delta: float, friction: float) -> void:
 
 func _print_debug_state() -> void:
 	# One-line state dump for diagnosing wedges, friction mismatches,
-	# and slope-slide behavior. Includes the friction value, the cell
-	# being queried, the floor normal, and current velocity.
+	# and slope-slide behavior. bottom_cell = cell at the player's
+	# bottom; contact_cell = the cell that contributed the lowest
+	# friction (different at slope joints or when straddling cells).
 	if not _tile_map:
 		return
-	var local_pos := _tile_map.to_local(global_position + Vector2(0, _get_bottom_offset()))
-	var cell := _tile_map.local_to_map(local_pos)
-	var friction := _get_current_friction()
+	var bottom_cell := _get_bottom_cell()
+	var info := _get_friction_info()
 	var floor_normal_str := "(off ground)"
 	if is_on_floor():
 		floor_normal_str = str(get_floor_normal())
 	print("[player] pos=", global_position,
-		" cell=", cell,
-		" friction=", friction,
+		" bottom_cell=", bottom_cell,
+		" contact_cell=", info["contact_cell"],
+		" friction=", info["friction"],
 		" on_floor=", is_on_floor(),
 		" on_wall=", is_on_wall(),
 		" floor_normal=", floor_normal_str,
