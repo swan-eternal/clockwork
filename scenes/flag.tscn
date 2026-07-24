@@ -23,7 +23,7 @@ initial_velocity_max = 400.0
 gravity = Vector3(0, 980, 0)
 scale_min = 0.5
 scale_max = 1.5
-color_ramp = ExtResource("GradientTexture1D_confetti")
+color_ramp = SubResource("GradientTexture1D_confetti")
 
 [node name="Flag" type="Area2D"]
 script = ExtResource("1_flag")
