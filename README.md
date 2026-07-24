@@ -8,7 +8,7 @@ Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `
 
 ## Concept
 
-A single-screen platformer where a **clock counts down** in the top center of the screen. When it hits zero, **gravity rotates** — and the world tilts to match. Reach the flag. The countdown IS the game: each tick rewrites where "down" is, so the safe floor you were standing on becomes a wall, then a ceiling, then the other wall.
+A single-screen platformer where a **clock counts down** in the top center of the screen. When it hits zero, **the level rotates 90°** around the play area center. Reach the flag. The countdown IS the game: each tick rotates the level, so the safe floor you were standing on becomes a wall, then a ceiling, then the other wall.
 
 The player is a small blob (sprite art later by Jason in LibreSprite). Levels are one screen — no scrolling. The whole game reads at a glance: clock, blob, flag, platforms.
 
@@ -24,8 +24,8 @@ The player is a small blob (sprite art later by Jason in LibreSprite). Levels ar
 ## Locked Mechanics
 
 - **Single screen** — no scrolling, no transitions. One screen = one level.
-- **Clock is the timer and the trigger.** When it hits zero, gravity rotates.
-- **Rotating gravity is the only verb.** No enemies, no powerups in the jam scope. Hazards (spikes) exist for the death system but are static tiles, not actors.
+- **Clock is the timer and the trigger.** When it hits zero, the level rotates 90° around the play area center.
+- **Level rotation is the only verb.** No enemies, no powerups in the jam scope. Hazards (spikes) exist for the death system but are static tiles, not actors.
 - **Win by touching the flag.** Touch-to-win, no additional interaction.
 - **Death = full level reset.** Player respawns at spawn, clock resets to 10, no checkpoints. Levels are short, so the reset cost is fine.
 - **Levels inherit from a single template.** All 3 levels (L1/L2/L3) are inherited scenes from `scenes/level_template.tscn` — same architecture, only the level-specific bits (tiles, flag position, player spawn, clock duration) vary.
@@ -39,11 +39,11 @@ The player is a small blob (sprite art later by Jason in LibreSprite). Levels ar
 
 ## Technical Approach: Rotate the World (Around the Play Area Center)
 
-The visual effect of "gravity rotates" is achieved by rotating the level wrapper (`Walls` Node2D) around its position `(576, 324)` — the play area center. Walls contain the 4 wall StaticBody2Ds at local positions `(-304, 0)`, `(304, 0)`, `(0, -304)`, `(0, 304)` so they spin in place. The Player, ClockUI, and (eventual) Camera2D are **siblings** of Walls, not children, so they stay in world / screen space — the world tumbles around them, not the other way around.
+The level rotates 90° per clock tick by rotating the level wrapper (originally `Walls`, now `RotatingLevelComponents` Node2D) around its position `(576, 324)` — the play area center. Walls contain the 4 wall StaticBody2Ds at local positions `(-304, 0)`, `(304, 0)`, `(0, -304)`, `(0, 304)` so they spin in place. The Player, ClockUI, and (eventual) Camera2D are **siblings** of Walls, not children, so they stay in world / screen space — the world tumbles around them, not the other way around.
 
 **Why pivot at the play area center, not at world origin:** the pivot has to be where the geometry is. With Walls at `(576, 324)` and walls in local coords near that, the frame spins in place. With Walls at `(0, 0)`, walls would have to be near origin (off-screen by default) and require a Camera2D + position shifting. The current setup needs no camera math. TileMapLayer doesn't change this — cell coordinates are local to the TileMapLayer's grid origin, set once and forgotten.
 
-**Why we picked rotate-the-world over rotate-the-gravity-vector:** the visual drama of watching platforms tumble is what makes this concept feel like a game rather than a physics demo. Player input stays world-relative — no remapping needed because the level rotates, the player doesn't.
+**Why we rotate the level (rather than the player):** the visual drama of watching platforms tumble is what makes this concept feel like a game rather than a physics demo. Player input stays world-relative — no remapping needed because the level rotates, the player doesn't.
 
 **No input remapping needed.** Pressing 'right' always moves the player right in the world. The level rotates around the player (who stays in the global frame), so input naturally stays in world coords. After a 90° rotation, the player has to mentally map "right" to the new world direction — a learnable skill, not a bug. A `GravityDirection` enum + remapping layer would fight the design.
 
