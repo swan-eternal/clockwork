@@ -7,52 +7,57 @@ extends CharacterBody2D
 ##
 
 # Movement tuning — tweak together once level layouts exist.
-@export var RUN_SPEED := 200.0       # Horizontal speed (px/s) while moving
-@export var JUMP_VELOCITY := -400.0  # Upward impulse on jump (negative = up)
-@export var GRAVITY := 980.0         # Downward acceleration (px/s²)
-@export var GROUND_DECEL := 1500.0   # How fast the player stops on the ground (px/s²)
+## Horizontal speed (px/s) while moving.
+@export var RUN_SPEED := 200.0
+## Upward impulse on jump (negative = up).
+@export var JUMP_VELOCITY := -400.0
+## Downward acceleration (px/s²).
+@export var GRAVITY := 980.0
+## How fast the player stops on the ground (px/s²).
+@export var GROUND_DECEL := 1500.0
 
-# Extra downward acceleration while the down arrow is held. Adds to
-# Vector2.DOWN in world coords, so the world doesn't need to know
-# which way gravity "points" — the level rotates around the player
-# but gravity itself stays Vector2.DOWN (per Jason, 2026-07-24).
-#
-# Effects:
-#   - On slopes: augments the gravity-projected slope slide, so the
-#     player can push through high-friction slopes instead of slowing
-#     down. Move-and-slide naturally projects the extra downward
-#     velocity onto the slope plane.
-#   - In midair: doubles as a fast-fall (player falls faster when
-#     pressing down).
-#   - On flat ground: no visible effect — move_and_slide clamps the
-#     extra downward velocity back to zero against the floor.
-#
-# Magnitude: 1500 is ~1.5x GRAVITY. Strong enough to feel snappy on
-# slopes, not so strong it feels like a teleport. Tune in the
-# inspector once L1 has slopes in it.
+## Extra downward acceleration while the down arrow is held. Adds to
+## Vector2.DOWN in world coords, so the world doesn't need to know
+## which way gravity "points" — the level rotates around the player
+## but gravity itself stays Vector2.DOWN (per Jason, 2026-07-24).
+##
+## Effects:
+##   - On slopes: augments the gravity-projected slope slide, so the
+##     player can push through high-friction slopes instead of slowing
+##     down. Move-and-slide naturally projects the extra downward
+##     velocity onto the slope plane.
+##   - In midair: doubles as a fast-fall (player falls faster when
+##     pressing down).
+##   - On flat ground: no visible effect — move_and_slide clamps the
+##     extra downward velocity back to zero against the floor.
+##
+## Magnitude: 1500 is ~1.5x GRAVITY. Strong enough to feel snappy on
+## slopes, not so strong it feels like a teleport. Tune in the
+## inspector once L1 has slopes in it.
 @export var DOWN_BOOST: float = 1500.0
 
-# Input buffering — number of physics frames a jump press is remembered
-# while airborne. 5 frames (~83ms at 60fps) is a common platformer feel.
-# Higher = more forgiving; lower = stricter timing required.
+## Number of physics frames a jump press is remembered while airborne.
+## 5 frames (~83ms at 60fps) is a common platformer feel.
+## Higher = more forgiving; lower = stricter timing required.
 @export var JUMP_BUFFER_FRAMES: int = 5
 
-# Surface query — sample a few points a few pixels below the player's
-# bottom to find the actual contact cell. Default 3 points (left, center,
-# right at -12/0/+12 from the player's center) catch the slope cells at
-# a 45 degree V joint: the center point lands in the V (no data), the
-# side points land on the slopes. We take the MIN friction (most
-# slippery surface in contact).
-#
-# Tune in the inspector for different player sizes, tile sizes, or
-# steeper slopes. Steeper slopes + larger V width may need wider X
-# offsets to catch the slope cells past the V.
+## Sample depth (px) below the player's bottom to look for the contact cell.
+## Tune in the inspector for different player sizes or tile sizes.
 @export var surface_query_depth: float = 4.0
+## X offsets (relative to player center) of the surface query points.
+## Default 3 points (left, center, right at -12/0/+12) catch the slope
+## cells at a 45-degree V joint: the center point lands in the V (no
+## data), the side points land on the slopes. The MIN friction across
+## all points is used (most slippery surface in contact).
+##
+## Steeper slopes + larger V width may need wider X offsets to catch
+## the slope cells past the V.
 @export var surface_query_x_offsets: PackedFloat32Array = [-12.0, 0.0, 12.0]
 
-# Debug output — prints state to console every debug_poll_interval seconds.
-# Set debug_output = false in the inspector to silence when not debugging.
+## Master toggle for the per-frame debug print. Set false in the inspector
+## to silence the console output when not debugging.
 @export var debug_output: bool = true
+## Seconds between debug prints. Smaller = more frequent, more spammy.
 @export var debug_poll_interval: float = 0.5
 
 # Reference to the TileMapLayer for per-tile friction lookup.
