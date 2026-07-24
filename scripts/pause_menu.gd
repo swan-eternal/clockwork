@@ -2,9 +2,14 @@ extends CanvasLayer
 ##
 ## Pause menu for Clockwork. Toggled by ui_cancel (Escape by
 ## default) while a level scene is running. Uses Godot's built-in
-## SceneTree.paused flag to freeze the game; this menu's input
-## handling still runs because _input is not affected by the
-## pause flag (only _process / _physics_process are).
+## SceneTree.paused flag to freeze the game.
+##
+## IMPORTANT: this CanvasLayer has process_mode = PROCESS_MODE_ALWAYS
+## (set in the .tscn). The default PAUSABLE mode would freeze this
+## menu's input along with the rest of the tree, so the buttons
+## would be unclickable while paused -- the whole point of the menu.
+## ALWAYS lets the menu's _unhandled_input and the button clicks
+## keep running even when get_tree().paused = true.
 ##
 ## Buttons:
 ##   - Resume: unpause and hide

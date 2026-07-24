@@ -36,6 +36,7 @@ corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [node name="PauseMenu" type="CanvasLayer"]
+process_mode = 3
 script = ExtResource("1_pm")
 
 [node name="Background" type="ColorRect" parent="."]
