@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=4]
+[gd_scene load_steps=3 format=4 uid="uid://qpv0hn1hqc39l"]
 
 [ext_resource type="Script" path="res://scripts/chromatic_aberration_overlay.gd" id="1_ca"]
 [ext_resource type="Shader" path="res://shaders/chromatic_aberration.gdshader" id="2_shader"]
@@ -7,11 +7,11 @@
 shader = ExtResource("2_shader")
 shader_parameter/intensity = 0.05
 
-[node name="ChromaticAberration" type="CanvasLayer"]
+[node name="ChromaticAberration" type="CanvasLayer" unique_id=1690587432]
 layer = 100
 script = ExtResource("1_ca")
 
-[node name="ColorRect" type="ColorRect" parent="."]
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1824763951]
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
