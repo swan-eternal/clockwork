@@ -28,6 +28,11 @@ func _on_player_won() -> void:
 	# Pause the clock so rotation halts — the world freezes on the
 	# moment of victory.
 	_clock.pause()
+	# Mark this level complete for the level select screen's progress
+	# indicator. Uses the current scene's file path as the key, so
+	# the same level select screen works for any number of levels
+	# without hardcoding names.
+	ProgressTracker.mark_completed(scene.file_path)
 	# Hand off to the LevelCompleteUI. It handles the fade-in, the
 	# input wait, and emits `continue_pressed` when the player
 	# confirms. We just await that signal to know when to advance.
