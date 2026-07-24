@@ -43,9 +43,9 @@ The visual effect of "gravity rotates" is achieved by rotating the level wrapper
 
 **Why pivot at the play area center, not at world origin:** the pivot has to be where the geometry is. With Walls at `(576, 324)` and walls in local coords near that, the frame spins in place. With Walls at `(0, 0)`, walls would have to be near origin (off-screen by default) and require a Camera2D + position shifting. The current setup needs no camera math. TileMapLayer doesn't change this — cell coordinates are local to the TileMapLayer's grid origin, set once and forgotten.
 
-**Why we picked rotate-the-world over rotate-the-gravity-vector:** the visual drama of watching platforms tumble is what makes this concept feel like a game rather than a physics demo. Input remapping is a one-line lookup against a `GravityDirection` enum; the complication is small, the payoff large.
+**Why we picked rotate-the-world over rotate-the-gravity-vector:** the visual drama of watching platforms tumble is what makes this concept feel like a game rather than a physics demo. Player input stays world-relative — no remapping needed because the level rotates, the player doesn't.
 
-**Input remapping (TODO before L1 ships):** Player input is currently screen-relative, so pressing "right" after a 90° rotation sends the player in the wrong direction relative to the new ground. Needs remapping against a `GravityDirection` enum — about 20 lines in `player.gd`.
+**No input remapping needed.** Pressing 'right' always moves the player right in the world. The level rotates around the player (who stays in the global frame), so input naturally stays in world coords. After a 90° rotation, the player has to mentally map "right" to the new world direction — a learnable skill, not a bug. A `GravityDirection` enum + remapping layer would fight the design.
 
 ## Levels / Teaching Ramp
 
@@ -107,7 +107,7 @@ Skeleton (shipped 2026-07-23):
 - [x] `scenes/main.tscn` is a thin pass-through to the template
 
 Skeleton follow-ups:
-- [ ] Input remapping so "right" feels right after rotation (GravityDirection enum, ~20 lines in player.gd)
+
 - [ ] Swap Polygon2D player visual for AnimatedSprite2D when art lands
 
 Systems:
@@ -134,7 +134,7 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 
 ## Risks
 
-- **Input feel after rotation.** Without remapping, pressing "right" after a 90° rotation sends the player in the wrong direction. *Mitigation:* remap before building levels so playtesting is meaningful.
+- **Input feel after rotation.** World-relative input is intentional (pairs with rotate-the-world), but pressing "right" after a 90° rotation may not be the direction the player wants relative to the new ground. *Mitigation:* ship as-is and learn from playtesting. If the input feels unusable, add `GravityDirection` remapping as a follow-up.
 - **Tilemap dependency.** Level design can't start until tilemaps are picked. *Mitigation:* pick tileset early; build the level template with placeholder tiles in the meantime.
 - **Polish overhead on menus.** "Don't skip polish" could eat time. *Mitigation:* polish the menu/select as a single design pass once they're functional, not iteratively per-feature.
 - **Scope creep via hazards.** Death system is meant for spikes + pits; temptation to add moving hazards, projectiles, etc. *Mitigation:* stick to static spike tiles for the jam; defer anything else.
@@ -147,7 +147,7 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 
 - [ ] **Tilemap setup** — Jason assigns a TileSet to the `TileMapLayer` in the template, paints wall tiles + L1/L2/L3 geometry
 - [ ] `scenes/levels/L1.tscn`, `L2.tscn`, `L3.tscn` — inherited scenes from `level_template.tscn` with per-level tile data, Flag position, Player spawn, and `next_level_path` overrides
-- [ ] Input remapping (GravityDirection enum + remapped player input)
+
 - [ ] Death zone prototype + spike tile (Area2D in `death_zones` group) + `Player.died` signal
 - [ ] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
