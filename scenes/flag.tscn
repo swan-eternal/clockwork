@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/flag.gd" id="1_flag"]
 [ext_resource type="Texture2D" path="res://assets/sprites/confetti.png" id="2_confetti"]
+[ext_resource type="AudioStream" uid="uid://cbuf0gpxsc78p" path="res://assets/sounds/CountDownWinSound.mp3" id="2_winsound"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_flag"]
 size = Vector2(24, 40)
@@ -44,3 +45,6 @@ explosiveness = 1.0
 randomness = 1.0
 texture = ExtResource("2_confetti")
 process_material = SubResource("ParticleProcessMaterial_confetti")
+
+[node name="WinSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_winsound")

@@ -1,0 +1,37 @@
+[gd_scene format=4 uid="uid://dd10rmdlnmfnu"]
+
+[ext_resource type="Script" uid="uid://b8wl6gq4uva2g" path="res://scripts/rotating_level_components.gd" id="1_gnx8k"]
+[ext_resource type="TileSet" uid="uid://6ybxnwbci41c" path="res://assets/sprites/tiles/basetileset.tres" id="2_xs0jc"]
+[ext_resource type="PackedScene" path="res://scenes/flag.tscn" id="3_ru7e4"]
+[ext_resource type="PackedScene" uid="uid://dk8e20drr8swy" path="res://scenes/player.tscn" id="4_ckw4e"]
+[ext_resource type="PackedScene" path="res://scenes/clock_ui.tscn" id="5_rbbln"]
+[ext_resource type="PackedScene" path="res://scenes/level_complete_ui.tscn" id="6_pphk4"]
+[ext_resource type="PackedScene" path="res://scenes/game_complete_ui.tscn" id="7_3svpf"]
+[ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_a3ng0"]
+[ext_resource type="Script" uid="uid://b8px15fmkadhi" path="res://scripts/level.gd" id="9_level"]
+
+[node name="Main" type="Node2D" unique_id=2143881974]
+script = ExtResource("9_level")
+
+[node name="RotatingLevelComponents" type="Node2D" parent="." unique_id=545839711]
+position = Vector2(576, 324)
+script = ExtResource("1_gnx8k")
+
+[node name="TileMapLayer" type="TileMapLayer" parent="RotatingLevelComponents" unique_id=1274424758]
+position = Vector2(-288, -288)
+tile_map_data = PackedByteArray("AAAIAP//AAACAAYAAAAIABIAAAACAAYAAAAHABIAAAACAAYAAAAGABIAAAACAAYAAAAFABIAAAACAAYAAAAEABIAAAACAAYAAAADABIAAAACAAYAAAACABIAAAACAAYAAAD//wkAAAACAAYAAAASAAkAAAAHAAAAAAD//wgAAAACAAYAAAD//wcAAAACAAYAAAD//wYAAAACAAYAAAD//wUAAAACAAYAAAD//wQAAAACAAYAAAD//wMAAAACAAYAAAD//wIAAAACAAYAAAD//wEAAAACAAYAAAD//wAAAAACAAYAAAD/////AAACAAYAAAAAAP//AAACAAYAAAABAP//AAACAAYAAAACAP//AAACAAYAAAADAP//AAACAAYAAAAEAP//AAACAAYAAAAFAP//AAACAAYAAAAGAP//AAACAAYAAAAHAP//AAACAAYAAAD//woAAAACAAYAAAD//wsAAAACAAYAAAD//wwAAAACAAYAAAD//w0AAAACAAYAAAD//w4AAAACAAYAAAD//w8AAAACAAYAAAD//xAAAAACAAYAAAD//xEAAAACAAYAAAD//xIAAAACAAYAAAAAABIAAAACAAYAAAABABIAAAACAAYAAAAJAP//AAACAAYAAAAKAP//AAACAAYAAAALAP//AAACAAYAAAAMAP//AAACAAYAAAANAP//AAACAAYAAAAOAP//AAACAAYAAAAPAP//AAACAAYAAAAQAP//AAACAAYAAAARAP//AAACAAYAAAASAP//AAAHAAAAAAASAAAAAAAHAAAAAAASAAEAAAAHAAAAAAASAAIAAAAHAAAAAAASAAMAAAAHAAAAAAASAAQAAAAHAAAAAAASAAUAAAAHAAAAAAASAAYAAAAHAAAAAAASAAcAAAAHAAAAAAASAAgAAAAHAAAAAAASAAoAAAAHAAAAAAASAAsAAAAHAAAAAAASAAwAAAAHAAAAAAASAA0AAAAHAAAAAAASAA4AAAAHAAAAAAASAA8AAAAHAAAAAAASABAAAAAHAAAAAAASABEAAAAHAAAAAAASABIAAAAHAAAAAAARABIAAAAHAAAAAAAQABIAAAAHAAAAAAAPABIAAAAHAAAAAAAOABIAAAAHAAAAAAANABIAAAAHAAAAAAAMABIAAAAHAAAAAAALABIAAAAHAAAAAAAKABIAAAAHAAAAAAAJABIAAAAHAAAAAAALABEAAAAHAAAAAAALABAAAAAHAAAAAAALAA8AAAAHAAAAAAALAA4AAAAHAAAAAAALAA0AAAAHAAAAAAALAAwAAAAHAAAAAAALAAsAAAAHAAAAAAALAAoAAAAHAAAAAAAMAAoAAAAHAAAAAAANAAoAAAAHAAAAAAAOAAoAAAAHAAAAAAA=")
+tile_set = ExtResource("2_xs0jc")
+
+[node name="Flag" parent="RotatingLevelComponents" unique_id=905225718 instance=ExtResource("3_ru7e4")]
+position = Vector2(120, 92)
+
+[node name="Player" parent="." unique_id=1932304678 instance=ExtResource("4_ckw4e")]
+position = Vector2(400, 324)
+
+[node name="ClockUI" parent="." unique_id=743016643 instance=ExtResource("5_rbbln")]
+
+[node name="LevelCompleteUI" parent="." instance=ExtResource("6_pphk4")]
+
+[node name="GameCompleteUI" parent="." instance=ExtResource("7_3svpf")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("8_a3ng0")]

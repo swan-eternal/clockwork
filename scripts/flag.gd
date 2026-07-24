@@ -1,8 +1,8 @@
 extends Area2D
 ##
 ## Clockwork victory flag — emits `player_won` when the player
-## (anything in the "player" group) enters the area. Also fires
-## a confetti burst from the child GPUParticles2D node on win
+## (anything in the "player" group) enters the area. Fires both a
+## confetti burst (visual) and the win SFX (audio) on the same frame
 ## for a satisfying "I won!" payoff.
 ##
 ## Touch-to-win only. The level scene catches `player_won` and runs
@@ -12,6 +12,7 @@ extends Area2D
 signal player_won
 
 @onready var _confetti: GPUParticles2D = $Confetti
+@onready var _win_sound: AudioStreamPlayer = $WinSound
 
 func _ready() -> void:
 	# Wire the Area2D's body_entered signal. The flag itself doesn't
@@ -29,4 +30,7 @@ func _on_body_entered(body: Node2D) -> void:
 		# particles are configured with one_shot = true so they
 		# auto-stop after the burst (~1.2s).
 		_confetti.emitting = true
+		# Play the win SFX on the same frame — lands with the
+		# LevelCompleteUI fade-in kicked off by level.gd.
+		_win_sound.play()
 		player_won.emit()

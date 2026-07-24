@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://cx4b1pjauqo55" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Texture2D" uid="uid://cb5o8qh6nfyvf" path="res://assets/sprites/characters/greenball.png" id="2_g2els"]
+[ext_resource type="AudioStream" uid="uid://b5nhit1h1or1h" path="res://assets/sounds/CountDownJumpSound.wav" id="3_jumpsound"]
+[ext_resource type="AudioStream" uid="uid://ci7bp4dukno67" path="res://assets/sounds/CountDownDieSound.wav" id="4_diesound"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_qhqgy"]
 atlas = ExtResource("2_g2els")
@@ -50,5 +52,12 @@ shape = SubResource("CircleShape2D_vye67")
 visible = false
 color = Color(0.3, 0.8, 0.4, 1)
 polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+
+[node name="JumpSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_jumpsound")
+volume_db = 9.0
+
+[node name="DieSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_diesound")
 
 [connection signal="body_entered" from="DeathDetector" to="." method="_on_death_detector_body_entered"]

@@ -87,6 +87,12 @@ const DEATH_HOLD_TIME := 0.2
 # different "bottoms" — see _get_bottom_offset().
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 
+# SFX — AudioStreamPlayer children configured in player.tscn with the
+# matching .wav streams. play() called at the moment the action fires
+# (jump input handled below; death triggered in _die()).
+@onready var _jump_sound: AudioStreamPlayer = $JumpSound
+@onready var _die_sound: AudioStreamPlayer = $DieSound
+
 # Emitted when the player enters a death zone. The level orchestrator
 # listens for this and runs the death flow (flash → freeze → hide → reset).
 signal died
@@ -146,12 +152,14 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("ui_accept"):
 		if is_on_floor():
 			velocity.y = JUMP_VELOCITY
+			_jump_sound.play()
 			_jump_buffer = 0
 		else:
 			_jump_buffer = JUMP_BUFFER_FRAMES
 	elif _jump_buffer > 0 and is_on_floor():
 		# Buffered jump fires within JUMP_BUFFER_FRAMES frames of landing.
 		velocity.y = JUMP_VELOCITY
+		_jump_sound.play()
 		_jump_buffer = 0
 
 	# Buffer decrements each frame; if it hits 0 without firing, the
@@ -301,6 +309,7 @@ func _die() -> void:
 	# (AnimatedSprite2D, Polygon2D visual, etc.). visible = false on
 	# Player hides everything together.
 	_is_dying = true
+	_die_sound.play()
 	modulate = DEATH_FLASH_COLOR
 	await get_tree().create_timer(DEATH_FLASH_TIME).timeout
 	visible = false
