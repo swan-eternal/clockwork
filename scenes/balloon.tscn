@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://b51jojakic7i3"]
+
+[ext_resource type="Script" uid="uid://d1gtmu2bofskf" path="res://scripts/balloon.gd" id="1_balloon"]
+[ext_resource type="Texture2D" uid="uid://coo3yhbkolnsa" path="res://icon.svg" id="2_1eawp"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_balloon"]
+
+[node name="Balloon" type="RigidBody2D" unique_id=1980419820]
+collision_layer = 8
+collision_mask = 8
+mass = 0.5
+script = ExtResource("1_balloon")
+balloon_mass = 0.9
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1044891937]
+shape = SubResource("CircleShape2D_balloon")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1046879777]
+scale = Vector2(0.15, 0.15)
+texture = ExtResource("2_1eawp")
+
+[node name="StringLine" type="Line2D" parent="." unique_id=2027288130]
+width = 2.0
+default_color = Color(0.4, 0.4, 0.4, 1)

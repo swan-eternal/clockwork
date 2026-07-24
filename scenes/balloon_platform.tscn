@@ -1,11 +1,13 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3 uid="uid://bmita8jnhqwrg"]
 
 [ext_resource type="Script" path="res://scripts/moving_platform.gd" id="1_moving"]
+[ext_resource type="PackedScene" path="res://scenes/balloon.tscn" id="2_balloon"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(64, 16)
 
 [node name="BalloonPlatform" type="RigidBody2D"]
+freeze = true
 script = ExtResource("1_moving")
 platform_type = "Balloon"
 rail_start = Vector2(0, 100)
@@ -20,5 +22,14 @@ position = Vector2(0, 100)
 shape = SubResource("RectangleShape2D_platform")
 
 [node name="PlatformVisual" type="Polygon2D" parent="."]
-color = Color(0.5, 0.7, 1.0, 0.8)
+color = Color(0.5, 0.7, 1, 0.8)
 polygon = PackedVector2Array(-32, -8, 32, -8, 32, 8, -32, 8)
+
+[node name="Balloon1" parent="." instance=ExtResource("2_balloon")]
+offset = Vector2(-25, -30)
+
+[node name="Balloon2" parent="." instance=ExtResource("2_balloon")]
+offset = Vector2(0, -35)
+
+[node name="Balloon3" parent="." instance=ExtResource("2_balloon")]
+offset = Vector2(25, -30)
