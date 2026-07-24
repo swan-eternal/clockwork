@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=4]
 
 [ext_resource type="Script" path="res://scripts/chromatic_aberration_overlay.gd" id="1_ca"]
 [ext_resource type="Shader" path="res://shaders/chromatic_aberration.gdshader" id="2_shader"]

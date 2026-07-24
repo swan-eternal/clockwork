@@ -278,7 +278,7 @@ func _print_debug_state() -> void:
 		" floor_normal=", floor_normal_str,
 		" vel=", velocity)
 
-func _on_death_detector_body_entered(body: Node2D) -> void:
+func _on_death_detector_body_entered(_body: Node2D) -> void:
 	# DeathDetector (an Area2D child with collision_mask = 2) fires this
 	# whenever a body on the TileSet's physics_layer_1 (the "death"
 	# layer) enters the player's space. The body itself is just the
