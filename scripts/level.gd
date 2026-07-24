@@ -41,13 +41,6 @@ func _on_player_won() -> void:
 		return
 	get_tree().change_scene_to_file(next_level_path)
 
-func _wait_for_confirm() -> void:
-	# Kept for reference; the LevelCompleteUI handles input waiting now.
-	# Remove once we're sure no other code path uses it.
-	await get_tree().process_frame
-	while not Input.is_action_just_pressed("ui_accept"):
-		await get_tree().process_frame
-
 func _on_player_died() -> void:
 	# The player has already done the death animation (flash → hide)
 	# before emitting `died`. Reload the scene to reset the level:

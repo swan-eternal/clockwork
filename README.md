@@ -4,7 +4,7 @@
 
 ## Status
 
-Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node). **Refactor + system layers landed same day** (`8b23903` → `aec3d3d` → `b021b65`): wrapper renamed `Walls` → `RotatingLevelComponents` (rotating-by-default — anything that's "part of the level" is a child of this node, so it spins with the world); the 4 StaticBody2D walls were replaced with an empty `TileMapLayer` (Jason paints wall tiles + level geometry in the tilemap); `flag.tscn` + `level.gd` orchestrator added (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`); `scenes/level_template.tscn` built as the parent scene L1/L2/L3 inherit from; `scenes/main.tscn` is now a thin pass-through to the template. **Next layer:** tilemap setup (Jason assigns a TileSet in the editor and paints), then `level_complete_ui.tscn`, death system, main menu, level select.
+Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node). **Refactor + system layers landed same day** (`8b23903` → `aec3d3d` → `b021b65`): wrapper renamed `Walls` → `RotatingLevelComponents` (rotating-by-default — anything that's "part of the level" is a child of this node, so it spins with the world); the 4 StaticBody2D walls were replaced with an empty `TileMapLayer` (Jason paints wall tiles + level geometry in the tilemap); `flag.tscn` + `level.gd` orchestrator added (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`); `scenes/level_template.tscn` built as the parent scene L1/L2/L3 inherit from; `scenes/main.tscn` is now a thin pass-through to the template. **Next layer:** tilemap setup (Jason assigns a TileSet in the editor and paints), main menu, level select. **Death system + LevelCompleteUI landed 2026-07-24** (`0780a0c` → `d0b3ad4`): tilemap-based spike death zones (`physics_layer_1` + DeathDetector Area2D on the player + `Player.died` signal + level reset), `level_complete_ui.tscn` (fade-in win screen with "Press [Space] to continue" prompt, replaces the `print()` placeholder in `level.gd`).
 
 ## Concept
 
@@ -114,10 +114,10 @@ Skeleton follow-ups:
 
 Systems:
 - [x] `flag.tscn` (Area2D + visual + `player_won` signal)
-- [x] `level.gd` orchestrator (win flow done; death flow pending — needs `Player.died` signal)
+- [x] `level.gd` orchestrator (win flow → `LevelCompleteUI.show_win_screen()` → `await continue_pressed` → `change_scene_to_file(next_level_path)`; death flow → `get_tree().reload_current_scene()` on `Player.died`)
 - [x] `scenes/level_template.tscn` (parent scene; `scenes/main.tscn` is a pass-through)
 - [ ] Death zones (Area2D group + spike prototype + `Player.died` signal on the player)
-- [ ] `level_complete_ui.tscn` (CanvasLayer + fade-in animation + click-to-continue — replaces the `print()` placeholder)
+- [x] `level_complete_ui.tscn` (CanvasLayer + dark overlay + CenterContainer/VBox with "Level Complete!" title + "Press [Space] to continue" prompt; `show_win_screen()` fades in 0.3s, emits `continue_pressed` on ui_accept)
 - [ ] `main_menu.tscn` (styled start button + fade transition)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state — built before final ship)
 
@@ -152,7 +152,7 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 
 - [x] Death zone prototype (tilemap-based, `physics_layer_1` + DeathDetector Area2D + `Player.died` signal + level reset on death)
 - [ ] **Jason:** add a death polygon to a spike tile in the TileSet, then paint at least one spike in L1 so the flow is testable end-to-end
-- [ ] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
+- [x] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
 - [ ] Audio (SFX for tick, win, die, rotate)
 - [ ] Visual polish on rotation (camera shake? quick zoom? particles?)
