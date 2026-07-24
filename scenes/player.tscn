@@ -39,7 +39,16 @@ autoplay = "default"
 position = Vector2(0, 3)
 shape = SubResource("CircleShape2D_vye67")
 
+[node name="DeathDetector" type="Area2D" parent="."]
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DeathDetector"]
+position = Vector2(0, 3)
+shape = SubResource("CircleShape2D_vye67")
+
 [node name="Visual" type="Polygon2D" parent="." unique_id=1790012347]
 visible = false
 color = Color(0.3, 0.8, 0.4, 1)
 polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+
+[connection signal="body_entered" from="DeathDetector" to="." method="_on_death_detector_body_entered"]

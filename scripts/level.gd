@@ -6,7 +6,9 @@ extends Node2D
 ##   2. Wait for the player to press Space/Enter to continue.
 ##   3. Transition to the next level (or end the game if no next).
 ##
-## Death flow will be added when Player.died is implemented.
+## Catches Player.died and runs the death flow:
+##   1. The player has already done the death animation (flash → hide).
+##   2. Reload the scene to reset everything to its starting state.
 ##
 
 # Path to the next level scene. Empty = end of the game.
@@ -15,9 +17,11 @@ extends Node2D
 
 @onready var _flag: Area2D = $RotatingLevelComponents/Flag
 @onready var _clock: CanvasLayer = $ClockUI
+@onready var _player: CharacterBody2D = $Player
 
 func _ready() -> void:
 	_flag.player_won.connect(_on_player_won)
+	_player.died.connect(_on_player_died)
 
 func _on_player_won() -> void:
 	# Pause the clock so rotation halts — the world freezes on the
@@ -45,3 +49,14 @@ func _wait_for_confirm() -> void:
 	await get_tree().process_frame
 	while not Input.is_action_just_pressed("ui_accept"):
 		await get_tree().process_frame
+
+func _on_player_died() -> void:
+	# The player has already done the death animation (flash → hide)
+	# before emitting `died`. Reload the scene to reset the level:
+	# player position, clock, and any other transient state.
+	#
+	# reload_current_scene() is a full re-instantiation, which is the
+	# simplest reset for a jam. A softer reset (manually re-positioning
+	# the player + resetting the clock) would be cheaper but couples
+	# this orchestrator to all the level's per-node state.
+	get_tree().reload_current_scene()

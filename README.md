@@ -69,10 +69,11 @@ Four cross-level systems, designed up-front so they slot into the level template
 
 ### Death System
 
-- Death sources are `Area2D` nodes in the `death_zones` group. The first concrete instance will be spike tiles on the TileMap (custom metadata or a dedicated spike scene). Future pits, etc., follow the same pattern.
-- Player's `_on_area_entered` checks `is_in_group("death_zones")` and calls `_die()`.
-- Death flow: brief input disable → visual feedback (flash, hide) → reset the level (player position + clock back to 10).
+- Death sources are spike tiles on the TileMap, marked via a dedicated `physics_layer_1` ("death") on the TileSet. `physics_layer_1/collision_layer = 2` is the death-detection bitmask; spike tiles get a `physics_layer_1/polygon_0/points` collision shape in the TileSet. Spike tiles may also keep their `physics_layer_0` polygon (physical obstacle you can't walk through) or omit it (pit-style: walk through, die).
+- The Player has a child `Area2D` ("DeathDetector") with `collision_mask = 2` and a `CollisionShape2D` mirroring the player's body. When a body on the death layer overlaps, `body_entered` fires and the death flow starts.
+- Death flow: `_is_dying` flag freezes the player (`_physics_process` early-returns) → `modulate` flashes red for `DEATH_FLASH_TIME` (0.1s) → `visible = false` hides the player for `DEATH_HOLD_TIME` (0.2s) → `Player.died` signal is emitted → `level.gd` catches the signal and `get_tree().reload_current_scene()` resets the level.
 - Full level reset on every death, no checkpoints. Levels are short enough that the cost is fine and the design is simpler.
+- To add a spike to a level: open the TileSet in the editor, pick a spike-shaped tile, add a `physics_layer_1/polygon_0/points` collision shape on it. Then paint that tile in the level's TileMapLayer (the same one that handles solid collision). No code changes needed for any new spike.
 
 ### Main Menu + Level Select
 
@@ -148,7 +149,8 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 - [ ] **Tilemap setup** — Jason assigns a TileSet to the `TileMapLayer` in the template, paints wall tiles + L1/L2/L3 geometry
 - [ ] `scenes/levels/L1.tscn`, `L2.tscn`, `L3.tscn` — inherited scenes from `level_template.tscn` with per-level tile data, Flag position, Player spawn, and `next_level_path` overrides
 
-- [ ] Death zone prototype + spike tile (Area2D in `death_zones` group) + `Player.died` signal
+- [x] Death zone prototype (tilemap-based, `physics_layer_1` + DeathDetector Area2D + `Player.died` signal + level reset on death)
+- [ ] **Jason:** add a death polygon to a spike tile in the TileSet, then paint at least one spike in L1 so the flow is testable end-to-end
 - [ ] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
 - [ ] Audio (SFX for tick, win, die, rotate)

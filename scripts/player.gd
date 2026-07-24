@@ -6,6 +6,13 @@ extends CharacterBody2D
 ## will be replaced with an AnimatedSprite2D when Jason's sprite art lands.
 ##
 
+# Death animation — total ~0.3s (flash + hold) before the level
+# orchestrator reloads the scene. Tune both together if the death
+# feels too snappy or too drawn out.
+const DEATH_FLASH_COLOR := Color(1.0, 0.2, 0.2, 1.0)
+const DEATH_FLASH_TIME := 0.1
+const DEATH_HOLD_TIME := 0.2
+
 # Movement tuning — tweak together once level layouts exist.
 ## Horizontal speed (px/s) the input drives the player toward.
 ## The player can EXCEED this via ramp launches and drops — this is
@@ -80,8 +87,16 @@ extends CharacterBody2D
 # different "bottoms" — see _get_bottom_offset().
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 
+# Emitted when the player enters a death zone. The level orchestrator
+# listens for this and runs the death flow (flash → freeze → hide → reset).
+signal died
+
 var _jump_buffer: int = 0
 var _debug_accum: float = 0.0
+# Death-in-progress flag. Set true when _die() starts so _physics_process
+# early-returns and input handlers ignore presses. Prevents double-fire
+# from the DeathDetector while the death animation is running.
+var _is_dying: bool = false
 
 func _ready() -> void:
 	# Tag the player so damage / pickup / win-zone checks can find us
@@ -91,6 +106,10 @@ func _ready() -> void:
 	add_to_group("player")
 
 func _physics_process(delta: float) -> void:
+	# Death freezes the player — skip all movement/physics while dying.
+	# The level orchestrator handles the reset; this is just the freeze.
+	if _is_dying:
+		return
 	# Horizontal input from left/right arrows or A/D.
 	var input_dir := Input.get_axis("ui_left", "ui_right")
 
@@ -258,3 +277,32 @@ func _print_debug_state() -> void:
 		" on_wall=", is_on_wall(),
 		" floor_normal=", floor_normal_str,
 		" vel=", velocity)
+
+func _on_death_detector_body_entered(body: Node2D) -> void:
+	# DeathDetector (an Area2D child with collision_mask = 2) fires this
+	# whenever a body on the TileSet's physics_layer_1 (the "death"
+	# layer) enters the player's space. The body itself is just the
+	# spike tile's StaticBody2D -- we don't need to inspect it, any
+	# overlap with the death layer is fatal.
+	#
+	# Guard against double-fire: a multi-tile spike row can trigger
+	# body_entered on consecutive frames; _is_dying makes sure we only
+	# start the death sequence once.
+	if _is_dying:
+		return
+	_die()
+
+func _die() -> void:
+	# Flash red → brief hold → hide → emit `died`. The level
+	# orchestrator listens for `died` and reloads the scene.
+	# Total duration = DEATH_FLASH_TIME + DEATH_HOLD_TIME (~0.3s).
+	#
+	# modulate is set on the Player node so it tints all children
+	# (AnimatedSprite2D, Polygon2D visual, etc.). visible = false on
+	# Player hides everything together.
+	_is_dying = true
+	modulate = DEATH_FLASH_COLOR
+	await get_tree().create_timer(DEATH_FLASH_TIME).timeout
+	visible = false
+	await get_tree().create_timer(DEATH_HOLD_TIME).timeout
+	died.emit()
