@@ -1,9 +1,29 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/flag.gd" id="1_flag"]
+[ext_resource type="Texture2D" path="res://assets/sprites/confetti.png" id="2_confetti"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_flag"]
 size = Vector2(24, 40)
+
+[sub_resource type="Gradient" id="Gradient_confetti"]
+offsets = PackedFloat32Array(0, 0.2, 0.4, 0.6, 0.8, 1)
+colors = PackedColorArray(1, 0.3, 0.3, 1, 1, 0.9, 0.3, 1, 0.4, 1, 0.3, 1, 0.3, 0.9, 1, 1, 0.4, 0.4, 1, 1, 0.9, 0.3, 0.9, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_confetti"]
+gradient = SubResource("Gradient_confetti")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_confetti"]
+emission_shape = 2
+emission_sphere_radius = 24.0
+direction = Vector3(0, 1, 0)
+spread = 50.0
+initial_velocity_min = 200.0
+initial_velocity_max = 400.0
+gravity = Vector3(0, 980, 0)
+scale_min = 0.5
+scale_max = 1.5
+color_ramp = ExtResource("GradientTexture1D_confetti")
 
 [node name="Flag" type="Area2D"]
 script = ExtResource("1_flag")
@@ -14,3 +34,13 @@ shape = SubResource("RectangleShape2D_flag")
 [node name="Visual" type="Polygon2D" parent="."]
 color = Color(0.95, 0.85, 0.2, 1)
 polygon = PackedVector2Array(-12, -20, 12, -20, 12, 20, -12, 20)
+
+[node name="Confetti" type="GPUParticles2D" parent="."]
+emitting = false
+amount = 80
+lifetime = 1.2
+one_shot = true
+explosiveness = 1.0
+randomness = 1.0
+texture = ExtResource("2_confetti")
+process_material = SubResource("ParticleProcessMaterial_confetti")
