@@ -119,7 +119,7 @@ Systems:
 - [ ] Death zones (Area2D group + spike prototype + `Player.died` signal on the player)
 - [x] `level_complete_ui.tscn` (CanvasLayer + dark overlay + CenterContainer/VBox with "Level Complete!" title + "Press [Space] to continue" prompt; `show_win_screen()` fades in 0.3s, emits `continue_pressed` on ui_accept)
 - [ ] `main_menu.tscn` (styled start button + fade transition)
-- [ ] `level_select.tscn` (L1/L2/L3 list with completion state — built before final ship)
+- [x] `level_select.tscn` (3-button picker: L1 / L2 / L3 + Back; completion state via ProgressTracker autoload; in-memory only, resets per launch)
 
 Levels (placeholder tilemaps until Jason picks a tileset):
 - [ ] L1 playable end-to-end (via inherited scene from template)
@@ -151,9 +151,9 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 - [ ] `scenes/levels/L1.tscn`, `L2.tscn`, `L3.tscn` — inherited scenes from `level_template.tscn` with per-level tile data, Flag position, Player spawn, and `next_level_path` overrides
 
 - [x] Death zone prototype (tilemap-based, `physics_layer_1` + DeathDetector Area2D + `Player.died` signal + level reset on death)
-- [ ] **Jason:** add a death polygon to a spike tile in the TileSet, then paint at least one spike in L1 so the flow is testable end-to-end
+- [x] **Jason:** add a death polygon to a spike tile in the TileSet, then paint at least one spike in L1 so the flow is testable end-to-end (confirmed by Jason 2026-07-24: "I put the spike in the level earlier for testing and it works fine")
 - [x] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
-- [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
+- [x] `level_select.tscn` (L1/L2/L3 list with completion state)
 - [ ] Audio (SFX for tick, win, die, rotate)
 - [ ] Visual polish on rotation (camera shake? quick zoom? particles?)
 - [ ] AnimatedSprite2D swap when player art lands
