@@ -83,7 +83,7 @@ Four cross-level systems, designed up-front so they slot into the level template
 
 ### Level Template (Godot Inherited Scenes)
 
-- `scenes/level_template.tscn` is the parent scene. It contains the full level architecture: `Level` (Node2D + `level.gd` orchestrator script), `Walls` (with `walls.gd` rotation script), `TileMapLayer` (empty, ready to paint), `Flag`, `Player`, `ClockUI`, `LevelCompleteUI`.
+- `scenes/level_template.tscn` is the parent scene. It contains the full level architecture: `Level` (Node2D + `level.gd` orchestrator script), `RotatingLevelComponents` (Node2D + `rotating_level_components.gd` rotation script), `TileMapLayer` (empty, ready to paint — child of `RotatingLevelComponents`), `Flag` (child of `RotatingLevelComponents`), `Player`, `ClockUI`, `LevelCompleteUI`.
 - Each level (`L1.tscn`, `L2.tscn`, `L3.tscn`) is created via **File → New Inherited Scene from `level_template.tscn`**. Editing the inherited scene only touches level-specific bits: tile placements, Flag position, Player spawn, ClockUI's `STARTING_SECONDS`.
 - **Why inherited scenes vs. copy-paste:** changes to the template (e.g., adding the death system later) propagate to all levels automatically. No risk of forgetting to update L2 when L1 gets a new feature. For 3 levels it's marginal benefit, but it pays off fast as we iterate.
 

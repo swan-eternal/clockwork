@@ -1,9 +1,11 @@
 extends Node2D
 ##
-## Walls wrapper for Clockwork — rotates 90° per clock tick (every
-## time ClockUI emits countdown_zero). Player and ClockUI are NOT
-## children of this node, so they stay in world / screen space —
-## the world tumbles around them, not the other way around.
+## RotatingLevelComponents wrapper for Clockwork — rotates 90°
+## every time ClockUI emits countdown_zero. Everything that should
+## be part of the rotating level (walls, TileMapLayer, flag, spikes,
+## platforms, decorations) goes as a CHILD of this node, so it spins
+## together. Player, ClockUI, and (eventual) Camera2D stay siblings
+## at the root so they don't rotate.
 ##
 
 # Angular speed for the level rotation, in degrees per second.
@@ -13,7 +15,7 @@ extends Node2D
 
 func _ready() -> void:
 	# Wire to the ClockUI's countdown_zero signal. ClockUI is a sibling
-	# of Walls under Main, so we go up one level and over.
+	# of RotatingLevelComponents under Main, so we go up one level and over.
 	var clock := get_parent().get_node_or_null("ClockUI")
 	if clock and clock.has_signal("countdown_zero"):
 		clock.countdown_zero.connect(_on_countdown_zero)

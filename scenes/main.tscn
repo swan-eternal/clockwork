@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/clock_ui.tscn" id="2_clock"]
-[ext_resource type="Script" path="res://scripts/walls.gd" id="3_walls"]
+[ext_resource type="Script" path="res://scripts/rotating_level_components.gd" id="3_rlc"]
+[ext_resource type="PackedScene" path="res://scenes/flag.tscn" id="4_flag"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_h"]
 size = Vector2(608, 40)
@@ -12,49 +13,52 @@ size = Vector2(40, 608)
 
 [node name="Main" type="Node2D"]
 
-[node name="Walls" type="Node2D" parent="."]
+[node name="RotatingLevelComponents" type="Node2D" parent="."]
 position = Vector2(576, 324)
-script = ExtResource("3_walls")
+script = ExtResource("3_rlc")
 
-[node name="Top" type="StaticBody2D" parent="Walls"]
+[node name="Top" type="StaticBody2D" parent="RotatingLevelComponents"]
 position = Vector2(0, -304)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Top"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotatingLevelComponents/Top"]
 shape = SubResource("RectangleShape2D_wall_h")
 
-[node name="Visual" type="Polygon2D" parent="Walls/Top"]
+[node name="Visual" type="Polygon2D" parent="RotatingLevelComponents/Top"]
 color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-304, -20, 304, -20, 304, 20, -304, 20)
 
-[node name="Bottom" type="StaticBody2D" parent="Walls"]
+[node name="Bottom" type="StaticBody2D" parent="RotatingLevelComponents"]
 position = Vector2(0, 304)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Bottom"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotatingLevelComponents/Bottom"]
 shape = SubResource("RectangleShape2D_wall_h")
 
-[node name="Visual" type="Polygon2D" parent="Walls/Bottom"]
+[node name="Visual" type="Polygon2D" parent="RotatingLevelComponents/Bottom"]
 color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-304, -20, 304, -20, 304, 20, -304, 20)
 
-[node name="Left" type="StaticBody2D" parent="Walls"]
+[node name="Left" type="StaticBody2D" parent="RotatingLevelComponents"]
 position = Vector2(-304, 0)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Left"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotatingLevelComponents/Left"]
 shape = SubResource("RectangleShape2D_wall_v")
 
-[node name="Visual" type="Polygon2D" parent="Walls/Left"]
+[node name="Visual" type="Polygon2D" parent="RotatingLevelComponents/Left"]
 color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-20, -304, 20, -304, 20, 304, -20, 304)
 
-[node name="Right" type="StaticBody2D" parent="Walls"]
+[node name="Right" type="StaticBody2D" parent="RotatingLevelComponents"]
 position = Vector2(304, 0)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Right"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotatingLevelComponents/Right"]
 shape = SubResource("RectangleShape2D_wall_v")
 
-[node name="Visual" type="Polygon2D" parent="Walls/Right"]
+[node name="Visual" type="Polygon2D" parent="RotatingLevelComponents/Right"]
 color = Color(0.5, 0.5, 0.55, 1)
 polygon = PackedVector2Array(-20, -304, 20, -304, 20, 304, -20, 304)
+
+[node name="Flag" parent="RotatingLevelComponents" instance=ExtResource("4_flag")]
+position = Vector2(200, 250)
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 position = Vector2(400, 324)
