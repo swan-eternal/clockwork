@@ -12,6 +12,11 @@ extends CharacterBody2D
 @export var GRAVITY := 980.0         # Downward acceleration (px/s²)
 @export var GROUND_DECEL := 1500.0   # How fast the player stops on the ground (px/s²)
 
+# Input buffering — number of physics frames a jump press is remembered
+# while airborne. 5 frames (~83ms at 60fps) is a common platformer feel.
+# Higher = more forgiving; lower = stricter timing required.
+@export var JUMP_BUFFER_FRAMES: int = 5
+
 # Surface query — sample a few points a few pixels below the player's
 # bottom to find the actual contact cell. Default 3 points (left, center,
 # right at -12/0/+12 from the player's center) catch the slope cells at
@@ -40,6 +45,7 @@ extends CharacterBody2D
 # different "bottoms" — see _get_bottom_offset().
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 
+var _jump_buffer: int = 0
 var _debug_accum: float = 0.0
 
 func _ready() -> void:
@@ -65,10 +71,25 @@ func _physics_process(delta: float) -> void:
 		var decel := GROUND_DECEL * friction
 		velocity.x = move_toward(velocity.x, 0, decel * delta)
 
-	# Jump: only if standing on something. is_on_floor() reads the
-	# body's collision state from the last move_and_slide call.
-	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
+	# Jump with input buffering. If the player presses jump while airborne,
+	# the press is queued for up to JUMP_BUFFER_FRAMES frames so it
+	# triggers as soon as they land. Without this, players have to time
+	# the press to the exact landing frame, which feels bad.
+	if Input.is_action_just_pressed("ui_accept"):
+		if is_on_floor():
+			velocity.y = JUMP_VELOCITY
+			_jump_buffer = 0
+		else:
+			_jump_buffer = JUMP_BUFFER_FRAMES
+	elif _jump_buffer > 0 and is_on_floor():
+		# Buffered jump fires within JUMP_BUFFER_FRAMES frames of landing.
 		velocity.y = JUMP_VELOCITY
+		_jump_buffer = 0
+
+	# Buffer decrements each frame; if it hits 0 without firing, the
+	# buffered press is forgotten.
+	if _jump_buffer > 0:
+		_jump_buffer -= 1
 
 	# Vertical physics: gravity when airborne, slope slide when grounded.
 	if not is_on_floor():
