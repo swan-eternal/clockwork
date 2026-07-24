@@ -12,6 +12,19 @@ extends CharacterBody2D
 @export var GRAVITY := 980.0         # Downward acceleration (px/s²)
 @export var GROUND_DECEL := 1500.0   # How fast the player stops on the ground (px/s²)
 
+# Surface query — sample a few points a few pixels below the player's
+# bottom to find the actual contact cell. Default 3 points (left, center,
+# right at -12/0/+12 from the player's center) catch the slope cells at
+# a 45 degree V joint: the center point lands in the V (no data), the
+# side points land on the slopes. We take the MIN friction (most
+# slippery surface in contact).
+#
+# Tune in the inspector for different player sizes, tile sizes, or
+# steeper slopes. Steeper slopes + larger V width may need wider X
+# offsets to catch the slope cells past the V.
+@export var surface_query_depth: float = 4.0
+@export var surface_query_x_offsets: PackedFloat32Array = [-12.0, 0.0, 12.0]
+
 # Debug output — prints state to console every debug_poll_interval seconds.
 # Set debug_output = false in the inspector to silence when not debugging.
 @export var debug_output: bool = true
@@ -23,7 +36,7 @@ extends CharacterBody2D
 @onready var _tile_map: TileMapLayer = $"../RotatingLevelComponents/TileMapLayer"
 
 # Reference to the CollisionShape2D — used to compute the player's
-# bottom offset for the friction lookup. Different shapes have
+# bottom offset for the friction query. Different shapes have
 # different "bottoms" — see _get_bottom_offset().
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 
@@ -41,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	var input_dir := Input.get_axis("ui_left", "ui_right")
 
 	# Read surface friction (0 = ice, 1 = full grip). Default 1.0
-	# (no slip) when there's no tile data or no friction set.
+	# (no slip) when no query point hits a tile with friction data.
 	var friction := _get_current_friction()
 
 	# Apply horizontal velocity. With no input, decelerate to a stop;
@@ -80,59 +93,34 @@ func _physics_process(delta: float) -> void:
 			_print_debug_state()
 
 func _get_current_friction() -> float:
-	# Scan a 3x3 grid of cells around the player's bottom cell. This
-	# catches:
-	#   - Slope joints: cell directly under the player is the V (no
-	#     tile data) but the slope cells are adjacent — the single-cell
-	#     query missed them.
-	#   - Players straddling cell boundaries.
-	#   - Mixed surfaces (e.g., foot on ice, foot on dirt).
-	#
-	# Returns the LOWEST friction found — the most slippery surface
-	# in contact. Default 1.0 (no data) doesn't affect the MIN as long
-	# as the actual ground has a lower value, so V cells at slope joints
-	# don't poison the result.
-	if not _tile_map:
-		return 1.0
-	var center_cell := _get_bottom_cell()
-	var min_friction := 1.0
-	for dx in [-1, 0, 1]:
-		for dy in [-1, 0, 1]:
-			var cell := center_cell + Vector2i(dx, dy)
-			var tile_data := _tile_map.get_cell_tile_data(cell)
-			if tile_data and tile_data.has_custom_data("friction"):
-				var f := float(tile_data.get_custom_data("friction"))
-				min_friction = minf(min_friction, f)
-	return min_friction
+	return _get_friction_info()["friction"]
 
 func _get_friction_info() -> Dictionary:
-	# Same as _get_current_friction() but also returns the contact cell
-	# (the cell that contributed the lowest friction). Used by the
-	# debug print so you can see when contact_cell != bottom_cell
-	# (i.e., the player is at a slope joint or straddling cells).
+	# Sample a few points a few pixels below the player's bottom. Each
+	# X offset in surface_query_x_offsets is a separate query point;
+	# the cell with the lowest friction is the contact (most slippery
+	# surface in contact). The center point is the default contact;
+	# side points catch the slope cells at V joints where the player's
+	# bottom cell has no data.
+	#
+	# Returns {"friction": float, "contact_cell": Vector2i}.
+	# contact_cell is (-1, -1) when no query point hits a tile with
+	# friction data (i.e., the player is airborne).
 	if not _tile_map:
-		return {"friction": 1.0, "contact_cell": Vector2i.ZERO}
-	var center_cell := _get_bottom_cell()
-	var result := {"friction": 1.0, "contact_cell": center_cell}
-	for dx in [-1, 0, 1]:
-		for dy in [-1, 0, 1]:
-			var cell := center_cell + Vector2i(dx, dy)
-			var tile_data := _tile_map.get_cell_tile_data(cell)
-			if tile_data and tile_data.has_custom_data("friction"):
-				var f := float(tile_data.get_custom_data("friction"))
-				if f < result["friction"]:
-					result["friction"] = f
-					result["contact_cell"] = cell
-	return result
-
-func _get_bottom_cell() -> Vector2i:
-	# Returns the cell at the player's bottom (not center). The center
-	# sits in the air cell above the platform; the bottom is on the
-	# actual floor cell. Used as the 3x3 scan center.
-	if not _tile_map:
-		return Vector2i.ZERO
-	var local_pos := _tile_map.to_local(global_position + Vector2(0, _get_bottom_offset()))
-	return _tile_map.local_to_map(local_pos)
+		return {"friction": 1.0, "contact_cell": Vector2i(-1, -1)}
+	var query_y := global_position.y + _get_bottom_offset() + surface_query_depth
+	var best := {"friction": 1.0, "contact_cell": Vector2i(-1, -1)}
+	for offset in surface_query_x_offsets:
+		var query_point := Vector2(global_position.x + offset, query_y)
+		var local_pos := _tile_map.to_local(query_point)
+		var cell := _tile_map.local_to_map(local_pos)
+		var tile_data := _tile_map.get_cell_tile_data(cell)
+		if tile_data and tile_data.has_custom_data("friction"):
+			var f := float(tile_data.get_custom_data("friction"))
+			if f < best["friction"]:
+				best["friction"] = f
+				best["contact_cell"] = cell
+	return best
 
 func _get_bottom_offset() -> float:
 	# y-offset from the player's center to the bottom of its collider.
@@ -169,19 +157,20 @@ func _apply_slope_slide(delta: float, friction: float) -> void:
 
 func _print_debug_state() -> void:
 	# One-line state dump for diagnosing wedges, friction mismatches,
-	# and slope-slide behavior. bottom_cell = cell at the player's
-	# bottom; contact_cell = the cell that contributed the lowest
-	# friction (different at slope joints or when straddling cells).
+	# and slope-slide behavior. contact_cell is the cell that
+	# contributed the lowest friction — different from the player's
+	# bottom cell when at a slope joint or straddling cells.
 	if not _tile_map:
 		return
-	var bottom_cell := _get_bottom_cell()
 	var info := _get_friction_info()
 	var floor_normal_str := "(off ground)"
 	if is_on_floor():
 		floor_normal_str = str(get_floor_normal())
+	var contact_str := "(no contact)"
+	if info["contact_cell"] != Vector2i(-1, -1):
+		contact_str = str(info["contact_cell"])
 	print("[player] pos=", global_position,
-		" bottom_cell=", bottom_cell,
-		" contact_cell=", info["contact_cell"],
+		" contact_cell=", contact_str,
 		" friction=", info["friction"],
 		" on_floor=", is_on_floor(),
 		" on_wall=", is_on_wall(),
