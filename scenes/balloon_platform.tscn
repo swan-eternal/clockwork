@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://crtmu7he8vcjv" path="res://scripts/moving_platform.gd" id="1_moving"]
 [ext_resource type="PackedScene" uid="uid://b51jojakic7i3" path="res://scenes/balloon.tscn" id="2_balloon"]
+[ext_resource type="Script" path="res://scripts/rail_marker.gd" id="3_rail_marker"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(64, 16)
@@ -12,9 +13,11 @@ freeze = true
 script = ExtResource("1_moving")
 
 [node name="RailStart" type="Node2D" parent="."]
+script = ExtResource("3_rail_marker")
 position = Vector2(0, 100)
 
 [node name="RailEnd" type="Node2D" parent="."]
+script = ExtResource("3_rail_marker")
 position = Vector2(0, -100)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=888360767]

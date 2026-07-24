@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/moving_platform.gd" id="1_moving"]
+[ext_resource type="Script" path="res://scripts/rail_marker.gd" id="2_rail_marker"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(64, 16)
@@ -17,9 +18,11 @@ platform_size = Vector2(64, 16)
 position = Vector2(0, -100)
 
 [node name="RailStart" type="Node2D" parent="."]
+script = ExtResource("2_rail_marker")
 position = Vector2(0, -100)
 
 [node name="RailEnd" type="Node2D" parent="."]
+script = ExtResource("2_rail_marker")
 position = Vector2(0, 100)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
