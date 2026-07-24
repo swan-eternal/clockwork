@@ -25,18 +25,25 @@ extends Control
 @onready var _master_slider: HSlider = $CenterContainer/VBox/Grid/MasterSlider
 @onready var _music_slider: HSlider = $CenterContainer/VBox/Grid/MusicSlider
 @onready var _sfx_slider: HSlider = $CenterContainer/VBox/Grid/SFXSlider
+@onready var _chromatic_slider: HSlider = $CenterContainer/VBox/Grid/ChromaticSlider
 @onready var _back_button: Button = $CenterContainer/VBox/BackButton
 
 func _ready() -> void:
 	_master_slider.value_changed.connect(_on_master_value_changed)
 	_music_slider.value_changed.connect(_on_music_value_changed)
 	_sfx_slider.value_changed.connect(_on_sfx_value_changed)
+	_chromatic_slider.value_changed.connect(_on_chromatic_value_changed)
 	_back_button.pressed.connect(_on_back_pressed)
 	# Initialize slider values from the current bus volumes so
 	# reopening the settings screen shows the actual state.
 	_master_slider.value = _slider_for_bus(master_bus)
 	_music_slider.value = _slider_for_bus(music_bus)
 	_sfx_slider.value = _slider_for_bus(sfx_bus)
+	# Same pattern for the chromatic aberration intensity -- read
+	# from the autoload so the slider reflects whatever the
+	# current value is (default 0.05, or whatever the user set
+	# last time).
+	_chromatic_slider.value = ChromaticAberration.get_intensity() * 100.0
 
 func _on_master_value_changed(value: float) -> void:
 	_set_bus_volume(master_bus, value)
@@ -46,6 +53,12 @@ func _on_music_value_changed(value: float) -> void:
 
 func _on_sfx_value_changed(value: float) -> void:
 	_set_bus_volume(sfx_bus, value)
+
+func _on_chromatic_value_changed(value: float) -> void:
+	# Slider is 0..100; the shader's intensity uniform is 0..1.
+	# Scale down so the slider value matches the percentage of
+	# the effect the user wants.
+	ChromaticAberration.set_intensity(value / 100.0)
 
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file(back_scene)
