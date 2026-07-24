@@ -7,13 +7,23 @@ extends CharacterBody2D
 ##
 
 # Movement tuning — tweak together once level layouts exist.
-## Horizontal speed (px/s) while moving.
+## Horizontal speed (px/s) the input drives the player toward.
+## The player can EXCEED this via ramp launches and drops — this is
+## a target, not a hard cap.
 @export var RUN_SPEED := 200.0
+## Lateral acceleration toward RUN_SPEED (px/s²) on the ground.
+@export var RUN_ACCEL: float = 1500.0
+## Lateral acceleration toward RUN_SPEED (px/s²) in the air. Reduced
+## vs RUN_ACCEL so jumps feel committed and momentum is preserved —
+## the player can nudge their trajectory mid-air but not redirect it.
+@export var AIR_ACCEL: float = 700.0
 ## Upward impulse on jump (negative = up).
 @export var JUMP_VELOCITY := -400.0
 ## Downward acceleration (px/s²).
 @export var GRAVITY := 980.0
-## How fast the player stops on the ground (px/s²).
+## How fast the player stops on flat ground (px/s²). On slopes,
+## momentum is preserved — the slope slide + friction handle
+## deceleration instead.
 @export var GROUND_DECEL := 1500.0
 
 ## Extra downward acceleration while the down arrow is held. Adds to
@@ -88,13 +98,27 @@ func _physics_process(delta: float) -> void:
 	# (no slip) when no query point hits a tile with friction data.
 	var friction := _get_current_friction()
 
-	# Apply horizontal velocity. With no input, decelerate to a stop;
-	# friction scales the deceleration.
-	if input_dir != 0:
-		velocity.x = input_dir * RUN_SPEED
+	# Apply horizontal velocity. Three cases:
+	#   - In the air: accelerate toward RUN_SPEED at AIR_ACCEL (reduced
+	#     control so jumps feel committed and momentum is preserved).
+	#     No horizontal decel — momentum is preserved mid-flight.
+	#   - On the ground with input: accelerate toward RUN_SPEED at
+	#     RUN_ACCEL. Don't hard-cap so the player can exceed RUN_SPEED
+	#     via ramp launches and drops.
+	#   - On the ground with no input: decelerate only on flat ground.
+	#     On slopes, the slope slide + friction handle deceleration
+	#     naturally — adding horizontal decel on top would eat the
+	#     momentum the player built up on the ramp or drop.
+	if not is_on_floor():
+		if input_dir != 0:
+			velocity.x = move_toward(velocity.x, input_dir * RUN_SPEED, AIR_ACCEL * delta)
+	elif input_dir != 0:
+		velocity.x = move_toward(velocity.x, input_dir * RUN_SPEED, RUN_ACCEL * delta)
 	else:
-		var decel := GROUND_DECEL * friction
-		velocity.x = move_toward(velocity.x, 0, decel * delta)
+		# Grounded with no input. Decel only on flat ground.
+		if abs(get_floor_normal().y) >= 0.999:
+			var decel := GROUND_DECEL * friction
+			velocity.x = move_toward(velocity.x, 0, decel * delta)
 
 	# Jump with input buffering. If the player presses jump while airborne,
 	# the press is queued for up to JUMP_BUFFER_FRAMES frames so it
@@ -196,14 +220,18 @@ func _get_bottom_offset() -> float:
 
 func _apply_slope_slide(delta: float, friction: float) -> void:
 	# Project gravity onto the slope plane and apply as acceleration.
-	# On flat ground (floor_normal.y == 1), the projection is zero —
+	# On flat ground (|floor_normal.y| ≈ 1), the projection is zero —
 	# no slide. Friction scales the slide via (1 - friction).
+	#
+	# Godot's documented convention is floor_normal points UP toward
+	# the player (so flat ground gives y = -1). The abs() check handles
+	# both sign conventions of the normal.
 	#
 	# 1-frame delay (uses last frame's floor_normal) is barely
 	# noticeable. A frame-perfect version would defer this until
 	# after move_and_slide, but for game-jam timing it's fine.
 	var floor_normal := get_floor_normal()
-	if floor_normal.y >= 0.999:
+	if abs(floor_normal.y) >= 0.999:
 		return  # flat ground, no slide needed
 	var gravity := Vector2.DOWN * GRAVITY
 	var slide := gravity - floor_normal * gravity.dot(floor_normal)
