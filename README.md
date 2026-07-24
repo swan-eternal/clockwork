@@ -4,7 +4,7 @@
 
 ## Status
 
-Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), 4 enclosing walls (square 568×568 inner play area), clock UI (CanvasLayer + Label counting 10→0), Walls rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the Walls node). **Next layer:** tilemap-based levels (Jason evaluating open-source tilesets) + four system designs locked in below (victory flag, death, main menu + level select, level template).
+Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node). **Refactor + system layers landed same day** (`8b23903` → `aec3d3d` → `b021b65`): wrapper renamed `Walls` → `RotatingLevelComponents` (rotating-by-default — anything that's "part of the level" is a child of this node, so it spins with the world); the 4 StaticBody2D walls were replaced with an empty `TileMapLayer` (Jason paints wall tiles + level geometry in the tilemap); `flag.tscn` + `level.gd` orchestrator added (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`); `scenes/level_template.tscn` built as the parent scene L1/L2/L3 inherit from; `scenes/main.tscn` is now a thin pass-through to the template. **Next layer:** tilemap setup (Jason assigns a TileSet in the editor and paints), then `level_complete_ui.tscn`, death system, main menu, level select.
 
 ## Concept
 
@@ -98,23 +98,26 @@ Four cross-level systems, designed up-front so they slot into the level template
 ## MVP (Minimum Viable Product)
 
 Skeleton (shipped 2026-07-23):
-- [x] Clock UI (CanvasLayer + Label, top center, 10s countdown, `@export var STARTING_SECONDS`)
+- [x] Clock UI (CanvasLayer + Label, top center, 10s countdown, `@export var STARTING_SECONDS`, pause/resume for the win flow)
 - [x] Player blob (CharacterBody2D, placeholder Polygon2D visual, left/right + jump + gravity, in "player" group)
-- [x] 4 enclosing walls (StaticBody2D + Polygon2D visual, square 568×568 play area)
-- [x] Walls rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on Walls)
+- [x] `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node)
+- [x] `flag.tscn` (Area2D + Polygon2D visual + `player_won` signal, `body_entered` filtered via `is_in_group("player")`)
+- [x] `level.gd` orchestrator (catches `Flag.player_won` → pause clock → await `ui_accept` → `change_scene_to_file(next_level_path)`)
+- [x] `scenes/level_template.tscn` (parent scene: Main + `RotatingLevelComponents` + TileMapLayer + Flag + Player + ClockUI — what L1/L2/L3 inherit from)
+- [x] `scenes/main.tscn` is a thin pass-through to the template
 
 Skeleton follow-ups:
 - [ ] Input remapping so "right" feels right after rotation (GravityDirection enum, ~20 lines in player.gd)
 - [ ] Swap Polygon2D player visual for AnimatedSprite2D when art lands
 
-Systems (designed, not yet implemented):
-- [ ] `flag.tscn` (Area2D + visual + `player_won` signal)
-- [ ] `level.gd` orchestrator (catches flag/died signals, runs win/reset flow)
-- [ ] Death zones (Area2D group + spike prototype)
-- [ ] `level_complete_ui.tscn` (CanvasLayer + fade-in animation + click-to-continue)
+Systems:
+- [x] `flag.tscn` (Area2D + visual + `player_won` signal)
+- [x] `level.gd` orchestrator (win flow done; death flow pending — needs `Player.died` signal)
+- [x] `scenes/level_template.tscn` (parent scene; `scenes/main.tscn` is a pass-through)
+- [ ] Death zones (Area2D group + spike prototype + `Player.died` signal on the player)
+- [ ] `level_complete_ui.tscn` (CanvasLayer + fade-in animation + click-to-continue — replaces the `print()` placeholder)
 - [ ] `main_menu.tscn` (styled start button + fade transition)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state — built before final ship)
-- [ ] `scenes/level_template.tscn` (parent scene that L1/L2/L3 inherit from)
 
 Levels (placeholder tilemaps until Jason picks a tileset):
 - [ ] L1 playable end-to-end (via inherited scene from template)
@@ -140,12 +143,11 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 
 *(Grows as we work. Highest priority first.)*
 
+- [ ] **Tilemap setup** — Jason assigns a TileSet to the `TileMapLayer` in the template, paints wall tiles + L1/L2/L3 geometry
+- [ ] `scenes/levels/L1.tscn`, `L2.tscn`, `L3.tscn` — inherited scenes from `level_template.tscn` with per-level tile data, Flag position, Player spawn, and `next_level_path` overrides
 - [ ] Input remapping (GravityDirection enum + remapped player input)
-- [ ] `level.gd` orchestrator script (catches Flag.player_won, Player.died)
-- [ ] `flag.tscn` (reusable flag area scene)
-- [ ] `scenes/level_template.tscn` (parent scene for L1/L2/L3)
-- [ ] Death zone prototype + spike tile (Area2D in `death_zones` group)
-- [ ] `level_complete_ui.tscn` (fade-in win screen)
+- [ ] Death zone prototype + spike tile (Area2D in `death_zones` group) + `Player.died` signal
+- [ ] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [ ] `main_menu.tscn` (styled start button + fade transition)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
 - [ ] Audio (SFX for tick, win, die, rotate)
