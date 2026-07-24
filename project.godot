@@ -18,7 +18,8 @@ config/icon="res://icon.svg"
 [autoload]
 
 ProgressTracker="*res://scripts/progress_tracker.gd"
-ChromaticAberration="*res://scenes/chromatic_aberration_overlay.tscn"
+ChromaticAberration="*scenes/chromatic_aberration_overlay.tscn"
+SceneHistory="*res://scripts/scene_history.gd"
 
 [display]
 

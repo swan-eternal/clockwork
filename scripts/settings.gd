@@ -61,7 +61,15 @@ func _on_chromatic_value_changed(value: float) -> void:
 	ChromaticAberration.set_intensity(value / 100.0)
 
 func _on_back_pressed() -> void:
-	get_tree().change_scene_to_file(back_scene)
+	# If we were opened from another scene (typically the pause
+	# menu while in a level), return there so the player keeps
+	# their level state. Otherwise fall back to the configured
+	# back_scene (main menu by default).
+	var target := SceneHistory.previous_scene_path if not SceneHistory.previous_scene_path.is_empty() else back_scene
+	# Clear so a future "back from settings" doesn't use a stale
+	# path from a previous session.
+	SceneHistory.previous_scene_path = ""
+	get_tree().change_scene_to_file(target)
 
 func _set_bus_volume(bus_name: String, slider_value: float) -> void:
 	# Map the slider's 0..100 range to dB (linear for now; a

@@ -68,16 +68,15 @@ func _on_main_menu_pressed() -> void:
 	get_tree().change_scene_to_file(main_menu_scene)
 
 func _on_settings_pressed() -> void:
-	# Open the settings scene. Unpause first so the settings scene
-	# doesn't inherit the paused state (its own scene tree starts
-	# unpaused; the settings UI uses _process for slider updates
-	# and a paused tree would freeze those).
-	#
-	# Note: this loses the current level state. The player exits
-	# to the settings scene, and clicking Back from there goes to
-	# the main menu (per settings.tscn's back_scene default). A
-	# future improvement would be to show settings as an overlay
-	# so the level state is preserved.
+	# Record where we're coming from so Settings' Back button can
+	# return us to the level scene (not the main menu). Without
+	# this, the player would lose their level state by clicking
+	# Back from Settings.
+	SceneHistory.previous_scene_path = get_tree().current_scene.scene_file_path
+	# Unpause first so the settings scene doesn't inherit the
+	# paused state (its own scene tree starts unpaused; the
+	# settings UI uses _process for slider updates and a paused
+	# tree would freeze those).
 	get_tree().paused = false
 	get_tree().change_scene_to_file(settings_scene)
 
