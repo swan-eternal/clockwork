@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://b8wl6gq4uva2g" path="res://scripts/rotating_level_components.gd" id="3_rlc"]
 [ext_resource type="PackedScene" path="res://scenes/flag.tscn" id="4_flag"]
 [ext_resource type="Script" uid="uid://b8px15fmkadhi" path="res://scripts/level.gd" id="5_level"]
+[ext_resource type="PackedScene" path="res://scenes/level_complete_ui.tscn" id="6_lcui"]
 
 [node name="Main" type="Node2D" unique_id=2143881974]
 script = ExtResource("5_level")
@@ -26,3 +27,5 @@ position = Vector2(200, 250)
 position = Vector2(400, 324)
 
 [node name="ClockUI" parent="." unique_id=743016643 instance=ExtResource("2_clock")]
+
+[node name="LevelCompleteUI" parent="." instance=ExtResource("6_lcui")]

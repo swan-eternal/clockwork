@@ -3,7 +3,7 @@ extends Node2D
 ## Level orchestrator for Clockwork — sits on the root of a level scene.
 ## Catches Flag.player_won and runs the win flow:
 ##   1. Pause the clock so the world stops rotating.
-##   2. Wait for the player to press Space/Enter to continue.
+##   2. Show the LevelCompleteUI (fades in, waits for Space/Enter).
 ##   3. Transition to the next level (or end the game if no next).
 ##
 ## Catches Player.died and runs the death flow:
@@ -18,6 +18,7 @@ extends Node2D
 @onready var _flag: Area2D = $RotatingLevelComponents/Flag
 @onready var _clock: CanvasLayer = $ClockUI
 @onready var _player: CharacterBody2D = $Player
+@onready var _level_complete_ui: CanvasLayer = $LevelCompleteUI
 
 func _ready() -> void:
 	_flag.player_won.connect(_on_player_won)
@@ -25,14 +26,13 @@ func _ready() -> void:
 
 func _on_player_won() -> void:
 	# Pause the clock so rotation halts — the world freezes on the
-	# moment of victory. LevelCompleteUI will fade in here once we
-	# have that scene; for now we just log.
+	# moment of victory.
 	_clock.pause()
-	print("[level] player won — clock paused, waiting for input")
-
-	# Wait for the player to acknowledge before advancing.
-	# ui_accept is Space/Enter by default; works on gamepads too.
-	await _wait_for_confirm()
+	# Hand off to the LevelCompleteUI. It handles the fade-in, the
+	# input wait, and emits `continue_pressed` when the player
+	# confirms. We just await that signal to know when to advance.
+	_level_complete_ui.show_win_screen()
+	await _level_complete_ui.continue_pressed
 
 	# Advance to the next level, or end the game if no next is set.
 	if next_level_path.is_empty():
@@ -42,10 +42,8 @@ func _on_player_won() -> void:
 	get_tree().change_scene_to_file(next_level_path)
 
 func _wait_for_confirm() -> void:
-	# Wait for a fresh ui_accept press to advance. Leading await
-	# consumes any input that was processed on the same frame as the
-	# win (rare but possible — pressing Space AND touching the flag
-	# in the same frame would otherwise auto-advance immediately).
+	# Kept for reference; the LevelCompleteUI handles input waiting now.
+	# Remove once we're sure no other code path uses it.
 	await get_tree().process_frame
 	while not Input.is_action_just_pressed("ui_accept"):
 		await get_tree().process_frame
