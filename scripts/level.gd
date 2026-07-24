@@ -34,8 +34,10 @@ func _ready() -> void:
 
 func _on_player_won() -> void:
 	# Pause the clock so rotation halts — the world freezes on the
-	# moment of victory.
-	_clock.pause()
+	# moment of victory. Use won() (not pause()) so the rotation
+	# completion handler doesn't accidentally un-pause the clock if
+	# the player won during a rotation animation.
+	_clock.won()
 	# Mark this level complete for the level select screen's progress
 	# indicator. Uses this node's scene_file_path (the .tscn this
 	# scene was loaded from, e.g. "res://scenes/levels/L1.tscn") as

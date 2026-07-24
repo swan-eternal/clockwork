@@ -8,6 +8,15 @@ extends Node2D
 ## at the root so they don't rotate.
 ##
 
+# Emitted when a rotation tween starts. ClockUI listens and pauses
+## the countdown so the player doesn't lose time during the rotation
+## animation.
+signal rotation_started
+# Emitted when a rotation tween completes. ClockUI listens and resumes
+## the countdown (unless the level has already been won — see
+## ClockUI._on_rotation_completed, which checks a `_won` flag).
+signal rotation_completed
+
 # Angular speed for the level rotation, in degrees per second.
 # 180 = a snappy half-second 90° turn. Lower = more dramatic,
 # higher = snappier. Tune in the inspector per level.
@@ -32,4 +41,11 @@ func _rotate_one_step(angle: float) -> void:
 	var target := rotation + angle
 	var duration := angle / deg_to_rad(safe_speed)
 	var tween := create_tween()
+	# Signal that the rotation has started so listeners (ClockUI) can
+	# pause animations/timers that shouldn't run during the rotation.
+	rotation_started.emit()
 	tween.tween_property(self, "rotation", target, duration)
+	# When the tween finishes, signal completion. (If the tween is
+	# killed — e.g. the node is freed mid-rotation — `finished` won't
+	# fire, but that's fine because the node that was listening is gone too.)
+	tween.finished.connect(rotation_completed.emit)
