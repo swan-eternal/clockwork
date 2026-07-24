@@ -12,6 +12,26 @@ extends CharacterBody2D
 @export var GRAVITY := 980.0         # Downward acceleration (px/s²)
 @export var GROUND_DECEL := 1500.0   # How fast the player stops on the ground (px/s²)
 
+# Extra downward acceleration while the down arrow is held. Adds to
+# Vector2.DOWN in world coords, so the world doesn't need to know
+# which way gravity "points" — the level rotates around the player
+# but gravity itself stays Vector2.DOWN (per Jason, 2026-07-24).
+#
+# Effects:
+#   - On slopes: augments the gravity-projected slope slide, so the
+#     player can push through high-friction slopes instead of slowing
+#     down. Move-and-slide naturally projects the extra downward
+#     velocity onto the slope plane.
+#   - In midair: doubles as a fast-fall (player falls faster when
+#     pressing down).
+#   - On flat ground: no visible effect — move_and_slide clamps the
+#     extra downward velocity back to zero against the floor.
+#
+# Magnitude: 1500 is ~1.5x GRAVITY. Strong enough to feel snappy on
+# slopes, not so strong it feels like a teleport. Tune in the
+# inspector once L1 has slopes in it.
+@export var DOWN_BOOST: float = 1500.0
+
 # Input buffering — number of physics frames a jump press is remembered
 # while airborne. 5 frames (~83ms at 60fps) is a common platformer feel.
 # Higher = more forgiving; lower = stricter timing required.
@@ -90,6 +110,14 @@ func _physics_process(delta: float) -> void:
 	# buffered press is forgotten.
 	if _jump_buffer > 0:
 		_jump_buffer -= 1
+
+	# Down arrow applies extra downward force (Vector2.DOWN in world coords).
+	# On slopes it augments the gravity-projected slide so the player can
+	# push through high-friction slopes; in midair it doubles as a fast-fall.
+	# Placed BEFORE vertical physics so the boost combines with gravity /
+	# slope slide in the same frame — one velocity vector goes into move_and_slide.
+	if Input.is_action_pressed("ui_down"):
+		velocity += Vector2.DOWN * DOWN_BOOST * delta
 
 	# Vertical physics: gravity when airborne, slope slide when grounded.
 	if not is_on_floor():

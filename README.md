@@ -200,5 +200,6 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 
 - [ ] Gravity (`player.gd` — currently 980)
 - [ ] Player move speed, jump velocity, ground deceleration (`player.gd` exports)
+- [ ] Down-boost magnitude for slope momentum (`player.gd:DOWN_BOOST` — currently 1500, ~1.5x GRAVITY)
 - [ ] Friction values per surface (TileSet custom data — set after spritesheet is settled)
 - [ ] Rotation timer and speed (`RotatingLevelComponents.rotation_speed` + `ClockUI.STARTING_SECONDS`)
