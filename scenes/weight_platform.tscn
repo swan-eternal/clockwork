@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/moving_platform.gd" id="1_moving"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
+size = Vector2(64, 16)
+
+[node name="WeightPlatform" type="RigidBody2D"]
+script = ExtResource("1_moving")
+platform_type = "Weight"
+rail_start = Vector2(0, -100)
+rail_end = Vector2(0, 100)
+starting_position = 0.0
+gravity = 980.0
+buoyancy = 1500.0
+platform_size = Vector2(64, 16)
+position = Vector2(0, -100)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="PlatformVisual" type="Polygon2D" parent="."]
+color = Color(0.6, 0.5, 0.4, 0.8)
+polygon = PackedVector2Array(-32, -8, 32, -8, 32, 8, -32, 8)

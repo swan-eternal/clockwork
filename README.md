@@ -6,6 +6,8 @@
 
 Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node). **Refactor + system layers landed same day** (`8b23903` → `aec3d3d` → `b021b65`): wrapper renamed `Walls` → `RotatingLevelComponents` (rotating-by-default — anything that's "part of the level" is a child of this node, so it spins with the world); the 4 StaticBody2D walls were replaced with an empty `TileMapLayer` (Jason paints wall tiles + level geometry in the tilemap); `flag.tscn` + `level.gd` orchestrator added (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`); `scenes/level_template.tscn` built as the parent scene L1/L2/L3 inherit from; `scenes/main.tscn` is now a thin pass-through to the template. **Next layer:** tilemap setup (Jason assigns a TileSet in the editor and paints), main menu, level select. **Death system + LevelCompleteUI landed 2026-07-24** (`0780a0c` → `d0b3ad4`): tilemap-based spike death zones (`physics_layer_1` + DeathDetector Area2D on the player + `Player.died` signal + level reset), `level_complete_ui.tscn` (fade-in win screen with "Press [Space] to continue" prompt, replaces the `print()` placeholder in `level.gd`).
 
+**Moving platforms shipped 2026-07-24**: two presets — `scenes/balloon_platform.tscn` (rises due to buoyancy) and `scenes/weight_platform.tscn` (falls due to gravity). Force-based motion: gravity (always) + buoyancy (balloon only) projected onto the rail's world-frame direction each physics frame; integrated into velocity and position along the rail; stops at endpoints (velocity → 0), no auto-ping-pong. **Body type is `RigidBody2D` with `freeze = true, freeze_mode = FREEZE_MODE_STATIC`** — chosen over `AnimatableBody2D` + `sync_to_physics`, which has a Godot 4 quirk where its `global_rotation` decouples from the parent transform. Designer-adjustable `starting_position` @export (range 0–1, returns on level reset). Player weight does NOT affect motion — player can ride either direction. **Emergent behavior**: a horizontal rail (in world frame, after a 90° rotation) has no gravity component along the rail — the platform stops moving until the next rotation, when the rail becomes vertical again (and inverted). Designers can use rail orientation to gate platform motion across rotations.
+
 ## Concept
 
 A single-screen platformer where a **clock counts down** in the top center of the screen. When it hits zero, **the level rotates 90°** around the play area center. Reach the flag. The countdown IS the game: each tick rotates the level, so the safe floor you were standing on becomes a wall, then a ceiling, then the other wall.
@@ -76,6 +78,16 @@ Four cross-level systems, designed up-front so they slot into the level template
 - Full level reset on every death, no checkpoints. Levels are short enough that the cost is fine and the design is simpler.
 - To add a spike to a level: open the TileSet in the editor, pick a spike-shaped tile, add a `physics_layer_1/polygon_0/points` collision shape on it. Then paint that tile in the level's TileMapLayer (the same one that handles solid collision). No code changes needed for any new spike.
 
+### Moving Platforms
+
+- **Two presets**: `scenes/balloon_platform.tscn` (rises due to buoyancy) and `scenes/weight_platform.tscn` (falls due to gravity). Both `RigidBody2D` + `freeze = true, freeze_mode = FREEZE_MODE_STATIC` — kinematic, pushes the player correctly, inherits parent rotation.
+- **Motion is force-based**: gravity (always) + buoyancy (balloon only) projected onto the rail's *world-frame* direction. The script rotates `local_rail_direction` by `global_rotation` before dotting with world forces — without this, the dot product has the wrong sign after a 90° level rotation and the platform sticks at rail endpoints. Position parameter `t` advances via `velocity += net_param_accel * delta; t += velocity * delta`. Stops at endpoints (velocity → 0), no bounce, no reverse.
+- **Designer-tunable via Inspector**: `platform_type` (Balloon/Weight — set by the preset), `starting_position` (range 0–1, where on the rail the platform begins), `gravity` (px/s² along world-down), `buoyancy` (px/s² along world-up, balloon only), `rail_start` / `rail_end` (local-frame rail endpoints), `platform_size` (collision + visual size).
+- **Player doesn't affect motion**: the player can ride the balloon *up* (buoyancy pushes the platform up regardless of rider weight) or ride the weight down. No signal from `player.gd` needed.
+- **Emergent behavior**: a horizontal rail (in world frame, after a 90° rotation) has no gravity component along the rail — the platform stops moving until the next rotation, when the rail becomes vertical again (and inverted). Designers can use rail orientation to gate platform motion across rotations.
+- **Reset on level reload**: `_t` and `_velocity` reset to `starting_position` and 0 in `_ready()`, so `get_tree().reload_current_scene()` (death flow) restores the platform to its starting position.
+- **`@tool` gizmo**: in the editor, draws the rail as a blue line with orange endpoint dots, plus a green marker at `starting_position` so the designer can see where the platform begins. Updates on `rail_start` / `rail_end` / `starting_position` change.
+
 ### Main Menu + Level Select
 
 - Separate scenes: `main_menu.tscn` (start) → click to start → `scenes/levels/L1.tscn` → ... → `scenes/levels/L3.tscn` → end screen.
@@ -122,6 +134,7 @@ Systems:
 - [x] `settings.tscn` (Master / Music / SFX volume sliders wired to AudioServer; persistence still pending)
 - [x] `main_menu.tscn` (styled Start / Settings / Level Select buttons; no fade transition yet — `change_scene_to_file` is instant)
 - [x] `level_select.tscn` (3-button picker: L1 / L2 / L3 + Back; completion state via ProgressTracker autoload; in-memory only, resets per launch)
+- [x] **Moving platforms** — `BalloonPlatform` + `WeightPlatform` presets (`scenes/balloon_platform.tscn`, `scenes/weight_platform.tscn`). Force-based motion (gravity / buoyancy) projected onto the rail's world-frame direction. Player can ride either direction (player weight doesn't affect motion). `RigidBody2D` + freeze + `FREEZE_MODE_STATIC` (not `AnimatableBody2D` + sync_to_physics — that has a Godot 4 rotation-tracking quirk). Designer-tunable `starting_position`, `gravity`, `buoyancy`, `rail_start`, `rail_end`, `platform_size` via the Inspector.
 
 Levels (placeholder tilemaps until Jason picks a tileset):
 - [ ] L1 playable end-to-end (via inherited scene from template)
@@ -169,7 +182,7 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 #### Features and Mechanics
 
 - [ ] **Visible square for level design** — debug overlay showing the play area boundary, toggleable in the inspector. Useful for placing tiles precisely during L1–L3 painting.
-- [ ] **Moving platforms** — weighted platforms (slide down under gravity) and balloon platforms (rise against gravity). Both are children of `RotatingLevelComponents` so they rotate with the world.
+
 - [ ] **Pause countdown clock while rotation is happening** — so the player doesn't lose time during the rotation animation. Currently the clock continues ticking during the tween.
 - [ ] **Game over / retry UI** — when the player dies, what shows? Currently `level.gd` just resets silently. A brief "you died" / "spikes!" overlay for ~0.5s before the reset would make death feel intentional rather than a glitch.
 
