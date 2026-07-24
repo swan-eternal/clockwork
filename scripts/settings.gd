@@ -2,9 +2,9 @@ extends Control
 ##
 ## Settings screen for Clockwork. Three volume sliders (master /
 ## music / SFX) that read and write to the project's audio buses
-## (see default_bus_layout.tres). Persistence (saving to disk via
-## ConfigFile) is a separate TODO; for the jam, settings reset on
-## game launch.
+## (see default_bus_layout.tres), plus a chromatic aberration
+## intensity slider. Settings persist across game launches via
+## ConfigFile (user://settings.cfg).
 ##
 
 # Audio bus names. These must match the bus/0/name (etc.) entries
@@ -22,6 +22,11 @@ extends Control
 @export var min_db: float = -60.0
 @export var max_db: float = 0.0
 
+## Path and section name for the persisted settings file.
+## user:// resolves to the per-user app data directory.
+const CONFIG_PATH := "user://settings.cfg"
+const CONFIG_SECTION := "settings"
+
 @onready var _master_slider: HSlider = $CenterContainer/VBox/Grid/MasterSlider
 @onready var _music_slider: HSlider = $CenterContainer/VBox/Grid/MusicSlider
 @onready var _sfx_slider: HSlider = $CenterContainer/VBox/Grid/SFXSlider
@@ -34,31 +39,41 @@ func _ready() -> void:
 	_sfx_slider.value_changed.connect(_on_sfx_value_changed)
 	_chromatic_slider.value_changed.connect(_on_chromatic_value_changed)
 	_back_button.pressed.connect(_on_back_pressed)
-	# Initialize slider values from the current bus volumes so
-	# reopening the settings screen shows the actual state.
-	_master_slider.value = _slider_for_bus(master_bus)
-	_music_slider.value = _slider_for_bus(music_bus)
-	_sfx_slider.value = _slider_for_bus(sfx_bus)
-	# Same pattern for the chromatic aberration intensity -- read
-	# from the autoload so the slider reflects whatever the
-	# current value is (default 0.05, or whatever the user set
-	# last time).
-	_chromatic_slider.value = ChromaticAberration.get_intensity() * 100.0
+
+	# Try to load saved settings; fall back to current bus/autoload
+	# state if no save exists (first launch) or the file is unreadable.
+	if not _load_settings():
+		_master_slider.set_value_no_signal(_slider_for_bus(master_bus))
+		_music_slider.set_value_no_signal(_slider_for_bus(music_bus))
+		_sfx_slider.set_value_no_signal(_slider_for_bus(sfx_bus))
+		_chromatic_slider.set_value_no_signal(ChromaticAberration.get_intensity() * 100.0)
+
+	# Apply the slider values to the audio buses and the chromatic
+	# aberration shader. We use set_value_no_signal above to avoid
+	# triggering value_changed during load, so we apply explicitly here.
+	_set_bus_volume(master_bus, _master_slider.value)
+	_set_bus_volume(music_bus, _music_slider.value)
+	_set_bus_volume(sfx_bus, _sfx_slider.value)
+	ChromaticAberration.set_intensity(_chromatic_slider.value / 100.0)
 
 func _on_master_value_changed(value: float) -> void:
 	_set_bus_volume(master_bus, value)
+	_save_settings()
 
 func _on_music_value_changed(value: float) -> void:
 	_set_bus_volume(music_bus, value)
+	_save_settings()
 
 func _on_sfx_value_changed(value: float) -> void:
 	_set_bus_volume(sfx_bus, value)
+	_save_settings()
 
 func _on_chromatic_value_changed(value: float) -> void:
 	# Slider is 0..100; the shader's intensity uniform is 0..1.
 	# Scale down so the slider value matches the percentage of
 	# the effect the user wants.
 	ChromaticAberration.set_intensity(value / 100.0)
+	_save_settings()
 
 func _on_back_pressed() -> void:
 	# If we were opened from another scene (typically the pause
@@ -92,3 +107,30 @@ func _slider_for_bus(bus_name: String) -> float:
 		return 100.0
 	var db := AudioServer.get_bus_volume_db(idx)
 	return (db - min_db) / (max_db - min_db) * _master_slider.max_value
+
+# Persist the current slider values to user://settings.cfg.
+# Called from each value_changed handler so the on-disk copy stays
+# in sync with the user's most recent change.
+func _save_settings() -> void:
+	var config := ConfigFile.new()
+	config.set_value(CONFIG_SECTION, "master", _master_slider.value)
+	config.set_value(CONFIG_SECTION, "music", _music_slider.value)
+	config.set_value(CONFIG_SECTION, "sfx", _sfx_slider.value)
+	config.set_value(CONFIG_SECTION, "chromatic", _chromatic_slider.value)
+	config.save(CONFIG_PATH)
+
+# Read user://settings.cfg and apply the saved values to the sliders.
+# Uses set_value_no_signal so loading doesn't trigger save_settings
+# via the value_changed signals.
+# Returns true on successful load, false if the file doesn't exist
+# or is unreadable (caller falls back to current bus/autoload state).
+func _load_settings() -> bool:
+	var config := ConfigFile.new()
+	var err := config.load(CONFIG_PATH)
+	if err != OK:
+		return false
+	_master_slider.set_value_no_signal(config.get_value(CONFIG_SECTION, "master", 100.0))
+	_music_slider.set_value_no_signal(config.get_value(CONFIG_SECTION, "music", 100.0))
+	_sfx_slider.set_value_no_signal(config.get_value(CONFIG_SECTION, "sfx", 100.0))
+	_chromatic_slider.set_value_no_signal(config.get_value(CONFIG_SECTION, "chromatic", 5.0))
+	return true
