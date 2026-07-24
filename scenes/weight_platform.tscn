@@ -16,6 +16,12 @@ buoyancy = 1500.0
 platform_size = Vector2(64, 16)
 position = Vector2(0, -100)
 
+[node name="RailStart" type="Node2D" parent="."]
+position = Vector2(0, -100)
+
+[node name="RailEnd" type="Node2D" parent="."]
+position = Vector2(0, 100)
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_platform")
 

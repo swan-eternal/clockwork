@@ -1,35 +1,39 @@
-[gd_scene load_steps=4 format=3 uid="uid://bmita8jnhqwrg"]
+[gd_scene format=3 uid="uid://bmita8jnhqwrg"]
 
-[ext_resource type="Script" path="res://scripts/moving_platform.gd" id="1_moving"]
-[ext_resource type="PackedScene" path="res://scenes/balloon.tscn" id="2_balloon"]
+[ext_resource type="Script" uid="uid://crtmu7he8vcjv" path="res://scripts/moving_platform.gd" id="1_moving"]
+[ext_resource type="PackedScene" uid="uid://b51jojakic7i3" path="res://scenes/balloon.tscn" id="2_balloon"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(64, 16)
 
-[node name="BalloonPlatform" type="RigidBody2D"]
+[node name="BalloonPlatform" type="RigidBody2D" unique_id=1587117843]
+position = Vector2(0, 100)
 freeze = true
 script = ExtResource("1_moving")
-platform_type = "Balloon"
-rail_start = Vector2(0, 100)
-rail_end = Vector2(0, -100)
-starting_position = 0.0
-gravity = 980.0
-buoyancy = 1500.0
-platform_size = Vector2(64, 16)
+
+[node name="RailStart" type="Node2D" parent="."]
 position = Vector2(0, 100)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="RailEnd" type="Node2D" parent="."]
+position = Vector2(0, -100)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=888360767]
 shape = SubResource("RectangleShape2D_platform")
 
-[node name="PlatformVisual" type="Polygon2D" parent="."]
+[node name="PlatformVisual" type="Polygon2D" parent="." unique_id=1416014010]
 color = Color(0.5, 0.7, 1, 0.8)
 polygon = PackedVector2Array(-32, -8, 32, -8, 32, 8, -32, 8)
 
-[node name="Balloon1" parent="." instance=ExtResource("2_balloon")]
-offset = Vector2(-25, -30)
+[node name="Balloon1" parent="." unique_id=1721122332 instance=ExtResource("2_balloon")]
+position = Vector2(-20, -41.874542)
+mass = 0.9
+offset = Vector2(-20, -40)
 
-[node name="Balloon2" parent="." instance=ExtResource("2_balloon")]
-offset = Vector2(0, -35)
+[node name="Balloon2" parent="." unique_id=2089927273 instance=ExtResource("2_balloon")]
+position = Vector2(0, -48.80642)
+mass = 0.9
 
-[node name="Balloon3" parent="." instance=ExtResource("2_balloon")]
-offset = Vector2(25, -30)
+[node name="Balloon3" parent="." unique_id=591783264 instance=ExtResource("2_balloon")]
+position = Vector2(20, -40.128456)
+mass = 0.9
+offset = Vector2(20, -40)
