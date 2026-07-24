@@ -8,18 +8,25 @@ extends Node2D
 ##
 ## Catches Player.died and runs the death flow:
 ##   1. The player has already done the death animation (flash → hide).
-##   2. Reload the scene to reset everything to its starting state.
+##   2. Show a brief "You died" overlay so death feels intentional.
+##   3. After a short pause, reload the scene to reset everything.
 ##
 
 # Path to the next level scene. Empty = end of the game.
 # Set per-level via the Inspector on the inherited scene.
 @export var next_level_path: String = ""
 
+## How long the "You died" overlay stays on screen before the
+## scene reload. Long enough to read, short enough that death
+## doesn't feel like a long pause.
+@export var death_overlay_duration: float = 0.5
+
 @onready var _flag: Area2D = $RotatingLevelComponents/Flag
 @onready var _clock: CanvasLayer = $ClockUI
 @onready var _player: CharacterBody2D = $Player
 @onready var _level_complete_ui: CanvasLayer = $LevelCompleteUI
 @onready var _game_complete_ui: CanvasLayer = $GameCompleteUI
+@onready var _game_over_overlay: CanvasLayer = _create_game_over_overlay()
 
 func _ready() -> void:
 	_flag.player_won.connect(_on_player_won)
@@ -48,11 +55,33 @@ func _on_player_won() -> void:
 
 func _on_player_died() -> void:
 	# The player has already done the death animation (flash → hide)
-	# before emitting `died`. Reload the scene to reset the level:
-	# player position, clock, and any other transient state.
-	#
-	# reload_current_scene() is a full re-instantiation, which is the
-	# simplest reset for a jam. A softer reset (manually re-positioning
-	# the player + resetting the clock) would be cheaper but couples
-	# this orchestrator to all the level's per-node state.
+	# before emitting `died`. Show a brief "You died" overlay so death
+	# feels intentional rather than a glitch, then reload the scene
+	# to reset the level (player position, clock, and any other
+	# transient state).
+	_game_over_overlay.visible = true
+	await get_tree().create_timer(death_overlay_duration).timeout
 	get_tree().reload_current_scene()
+
+# Build a self-contained "You died" overlay as a CanvasLayer at runtime.
+# Hidden by default; toggled visible in _on_player_died. Lives on a high
+# layer so it draws above the rest of the scene (above ClockUI,
+# LevelCompleteUI, GameCompleteUI, and any other layer the level uses).
+func _create_game_over_overlay() -> CanvasLayer:
+	var layer := CanvasLayer.new()
+	layer.layer = 10  # Above other layers.
+	var label := Label.new()
+	label.text = "You died"
+	# Red color to match the death-flash theme; large enough to read
+	# at a glance during the brief overlay window.
+	label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	label.add_theme_font_size_override("font_size", 64)
+	# Full-rect anchors so the text centers on the viewport regardless
+	# of resolution; alignment puts it in the middle of that rect.
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	layer.add_child(label)
+	layer.visible = false
+	add_child(layer)
+	return layer
