@@ -12,10 +12,22 @@ extends CharacterBody2D
 @export var GRAVITY := 980.0         # Downward acceleration (px/s²)
 @export var GROUND_DECEL := 1500.0   # How fast the player stops on the ground (px/s²)
 
+# Debug output — prints state to console every debug_poll_interval seconds.
+# Set debug_output = false in the inspector to silence when not debugging.
+@export var debug_output: bool = true
+@export var debug_poll_interval: float = 0.5
+
 # Reference to the TileMapLayer for per-tile friction lookup.
 # RotatingLevelComponents is a sibling of Player under Main, so
 # "../RotatingLevelComponents/TileMapLayer" is the relative path.
 @onready var _tile_map: TileMapLayer = $"../RotatingLevelComponents/TileMapLayer"
+
+# Reference to the CollisionShape2D — used to compute the player's
+# bottom offset for the friction lookup. Different shapes have
+# different "bottoms" — see _get_bottom_offset().
+@onready var _collision_shape: CollisionShape2D = $CollisionShape2D
+
+var _debug_accum: float = 0.0
 
 func _ready() -> void:
 	# Tag the player so damage / pickup / win-zone checks can find us
@@ -55,24 +67,50 @@ func _physics_process(delta: float) -> void:
 		_apply_slope_slide(delta, friction)
 
 	# move_and_slide resolves collisions against walls / platforms using
-	# this body's CollisionShape2D. Must be the LAST line of _physics_process
-	# — anything after it reads the post-collision velocity.
+	# this body's CollisionShape2D. Must be the LAST physics line —
+	# anything after it reads the post-collision velocity.
 	move_and_slide()
 
+	# Debug output: print state to console every debug_poll_interval
+	# seconds. Toggle off via debug_output = false in the inspector.
+	if debug_output:
+		_debug_accum += delta
+		if _debug_accum >= debug_poll_interval:
+			_debug_accum = 0.0
+			_print_debug_state()
+
 func _get_current_friction() -> float:
-	# Read the tile under the player. Returns 1.0 (no slip) as a safe
-	# default when there's no tile, no tile data, or no friction set.
-	# to_local + local_to_map handle the rotating world's transform —
-	# the query stays in TileMapLayer's local space regardless of the
-	# world's current rotation.
+	# Read the tile at the player's BOTTOM, not the center. The center
+	# sits in the air cell above the platform (no tile data); the bottom
+	# is on the actual floor cell. Without this offset, every surface
+	# reads as friction 1.0 (the default) regardless of tile data.
+	# to_local + local_to_map handle the rotating world's transform.
 	if not _tile_map:
 		return 1.0
-	var local_pos := _tile_map.to_local(global_position)
+	var local_pos := _tile_map.to_local(global_position + Vector2(0, _get_bottom_offset()))
 	var cell := _tile_map.local_to_map(local_pos)
 	var tile_data := _tile_map.get_cell_tile_data(cell)
 	if tile_data and tile_data.has_custom_data("friction"):
 		return tile_data.get_custom_data("friction")
 	return 1.0
+
+func _get_bottom_offset() -> float:
+	# y-offset from the player's center to the bottom of its collider.
+	# Different shapes have different "bottoms":
+	#   - Rectangle: half of size.y (the box's center is the body's center)
+	#   - Circle: the radius (it's centered)
+	#   - Capsule: half the height + the radius (rounded ends)
+	if not _collision_shape or not _collision_shape.shape:
+		return 0.0
+	var shape := _collision_shape.shape
+	if shape is RectangleShape2D:
+		return (shape as RectangleShape2D).size.y * 0.5
+	elif shape is CircleShape2D:
+		return (shape as CircleShape2D).radius
+	elif shape is CapsuleShape2D:
+		var cap := shape as CapsuleShape2D
+		return cap.height * 0.5 + cap.radius
+	return 0.0
 
 func _apply_slope_slide(delta: float, friction: float) -> void:
 	# Project gravity onto the slope plane and apply as acceleration.
@@ -88,3 +126,23 @@ func _apply_slope_slide(delta: float, friction: float) -> void:
 	var gravity := Vector2.DOWN * GRAVITY
 	var slide := gravity - floor_normal * gravity.dot(floor_normal)
 	velocity += slide * (1.0 - friction) * delta
+
+func _print_debug_state() -> void:
+	# One-line state dump for diagnosing wedges, friction mismatches,
+	# and slope-slide behavior. Includes the friction value, the cell
+	# being queried, the floor normal, and current velocity.
+	if not _tile_map:
+		return
+	var local_pos := _tile_map.to_local(global_position + Vector2(0, _get_bottom_offset()))
+	var cell := _tile_map.local_to_map(local_pos)
+	var friction := _get_current_friction()
+	var floor_normal_str := "(off ground)"
+	if is_on_floor():
+		floor_normal_str = str(get_floor_normal())
+	print("[player] pos=", global_position,
+		" cell=", cell,
+		" friction=", friction,
+		" on_floor=", is_on_floor(),
+		" on_wall=", is_on_wall(),
+		" floor_normal=", floor_normal_str,
+		" vel=", velocity)
