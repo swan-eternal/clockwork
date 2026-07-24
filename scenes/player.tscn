@@ -1,16 +1,45 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://dk8e20drr8swy"]
 
-[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" uid="uid://cx4b1pjauqo55" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Texture2D" uid="uid://cb5o8qh6nfyvf" path="res://assets/sprites/characters/greenball.png" id="2_g2els"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
-size = Vector2(32, 32)
+[sub_resource type="AtlasTexture" id="AtlasTexture_qhqgy"]
+atlas = ExtResource("2_g2els")
+region = Rect2(0, 0, 32, 32)
 
-[node name="Player" type="CharacterBody2D"]
+[sub_resource type="AtlasTexture" id="AtlasTexture_dqkch"]
+atlas = ExtResource("2_g2els")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_ewexw"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qhqgy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dqkch")
+}],
+"loop": 1,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_vye67"]
+radius = 13.0
+
+[node name="Player" type="CharacterBody2D" unique_id=1637235894]
 script = ExtResource("1_player")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("RectangleShape2D_player")
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1204896840]
+sprite_frames = SubResource("SpriteFrames_ewexw")
+autoplay = "default"
 
-[node name="Visual" type="Polygon2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=177180981]
+position = Vector2(0, 3)
+shape = SubResource("CircleShape2D_vye67")
+
+[node name="Visual" type="Polygon2D" parent="." unique_id=1790012347]
+visible = false
 color = Color(0.3, 0.8, 0.4, 1)
 polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
