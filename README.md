@@ -116,9 +116,11 @@ Systems:
 - [x] `flag.tscn` (Area2D + visual + `player_won` signal)
 - [x] `level.gd` orchestrator (win flow → `LevelCompleteUI.show_win_screen()` → `await continue_pressed` → `change_scene_to_file(next_level_path)`; death flow → `get_tree().reload_current_scene()` on `Player.died`)
 - [x] `scenes/level_template.tscn` (parent scene; `scenes/main.tscn` is a pass-through)
-- [ ] Death zones (Area2D group + spike prototype + `Player.died` signal on the player)
 - [x] `level_complete_ui.tscn` (CanvasLayer + dark overlay + CenterContainer/VBox with "Level Complete!" title + "Press [Space] to continue" prompt; `show_win_screen()` fades in 0.3s, emits `continue_pressed` on ui_accept)
-- [ ] `main_menu.tscn` (styled start button + fade transition)
+- [x] `game_complete_ui.tscn` (end-game screen with "Game Complete!" title + "Back to Main Menu" button; shown when L3 wins since there's no next level)
+- [x] `pause_menu.tscn` (ESC-toggled pause menu with Resume / Restart / Back to Main Menu; uses `get_tree().paused` to freeze the game)
+- [x] `settings.tscn` (Master / Music / SFX volume sliders wired to AudioServer; persistence still pending)
+- [x] `main_menu.tscn` (styled Start / Settings / Level Select buttons; no fade transition yet — `change_scene_to_file` is instant)
 - [x] `level_select.tscn` (3-button picker: L1 / L2 / L3 + Back; completion state via ProgressTracker autoload; in-memory only, resets per launch)
 
 Levels (placeholder tilemaps until Jason picks a tileset):
@@ -190,11 +192,11 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 
 #### UI Elements
 
-- [ ] Pause menu: Back to Main Menu, Settings, Restart buttons
-- [ ] **Pause menu integration** — wiring (input suppression, animation pause, gameplay freeze). The visual design is in the pause menu item above; this is the actual gameplay integration.
-- [ ] Settings menu:
-  - [ ] **Audio bus setup** — actual `AudioBus` entries in `project.godot` for master/music/SFX. Without these, the audio sliders are non-functional. ~5min setup once you decide on bus names.
-  - [ ] Audio: master, music, SFX volume
+- [x] Pause menu: Back to Main Menu, Settings, Restart buttons
+- [x] **Pause menu integration** — `get_tree().paused = true` freezes _process / _physics_process on all PAUSABLE nodes (default); _input still fires so the menu's buttons stay interactive. Resume / Restart / Main Menu unpause first to avoid inheriting a paused state in the next scene.
+- [x] Settings menu:
+  - [x] **Audio bus setup** — `default_bus_layout.tres` declares Master / Music / SFX buses; Music + SFX both send to Master.
+  - [x] Audio: master, music, SFX volume (linear 0..100 slider -> -60..0 dB)
   - [ ] **Settings persistence** — save audio/volume/brightness/VFX to disk so they survive across game launches. ~10 lines with `ConfigFile`.
   - [ ] Visual: VFX intensity, brightness, etc
 - [ ] **Credits screen** — about the game / music credits / open-source asset attribution (Kenney tilesets, etc).

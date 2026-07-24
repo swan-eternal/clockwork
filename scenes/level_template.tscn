@@ -7,6 +7,8 @@
 [ext_resource type="PackedScene" path="res://scenes/flag.tscn" id="4_flag"]
 [ext_resource type="Script" uid="uid://b8px15fmkadhi" path="res://scripts/level.gd" id="5_level"]
 [ext_resource type="PackedScene" path="res://scenes/level_complete_ui.tscn" id="6_lcui"]
+[ext_resource type="PackedScene" path="res://scenes/game_complete_ui.tscn" id="7_gcui"]
+[ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_pm"]
 
 [node name="Main" type="Node2D" unique_id=2143881974]
 script = ExtResource("5_level")
@@ -29,3 +31,7 @@ position = Vector2(400, 324)
 [node name="ClockUI" parent="." unique_id=743016643 instance=ExtResource("2_clock")]
 
 [node name="LevelCompleteUI" parent="." instance=ExtResource("6_lcui")]
+
+[node name="GameCompleteUI" parent="." instance=ExtResource("7_gcui")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("8_pm")]

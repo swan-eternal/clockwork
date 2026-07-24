@@ -1,47 +1,46 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/placeholder_screen.gd" id="1_ph"]
+[ext_resource type="Script" path="res://scripts/settings.gd" id="1_settings"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_normal"]
+content_margin_left = 16.0
+content_margin_top = 12.0
+content_margin_right = 16.0
+content_margin_bottom = 12.0
 bg_color = Color(0.3, 0.3, 0.35, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
-corner_radius_bottom_left = 8
 corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
 content_margin_left = 16.0
 content_margin_top = 12.0
 content_margin_right = 16.0
 content_margin_bottom = 12.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
 bg_color = Color(0.4, 0.4, 0.45, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
-corner_radius_bottom_left = 8
 corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
 content_margin_left = 16.0
 content_margin_top = 12.0
 content_margin_right = 16.0
 content_margin_bottom = 12.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
 bg_color = Color(0.5, 0.5, 0.55, 1)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
-corner_radius_bottom_left = 8
 corner_radius_bottom_right = 8
-content_margin_left = 16.0
-content_margin_top = 12.0
-content_margin_right = 16.0
-content_margin_bottom = 12.0
+corner_radius_bottom_left = 8
 
 [node name="Settings" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-script = ExtResource("1_ph")
-screen_title = "Settings (coming soon)"
+script = ExtResource("1_settings")
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
@@ -59,15 +58,84 @@ anchor_bottom = 1.0
 
 [node name="VBox" type="VBoxContainer" parent="CenterContainer"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 20
 
 [node name="Title" type="Label" parent="CenterContainer/VBox"]
 layout_mode = 2
-mouse_filter = 2
-text = "Settings (coming soon)"
-theme_override_font_sizes/font_size = 32
+text = "Settings"
+theme_override_font_sizes/font_size = 48
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 horizontal_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="CenterContainer/VBox"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 8
+
+[node name="MasterLabel" type="Label" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+text = "Master"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+horizontal_alignment = 2
+
+[node name="MasterSlider" type="HSlider" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="MusicLabel" type="Label" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+text = "Music"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+horizontal_alignment = 2
+
+[node name="MusicSlider" type="HSlider" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="SFXLabel" type="Label" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+text = "SFX"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+horizontal_alignment = 2
+
+[node name="SFXSlider" type="HSlider" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="ChromaticLabel" type="Label" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+text = "Chromatic"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+horizontal_alignment = 2
+
+[node name="ChromaticSlider" type="HSlider" parent="CenterContainer/VBox/Grid"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 5.0
 
 [node name="BackButton" type="Button" parent="CenterContainer/VBox"]
 layout_mode = 2

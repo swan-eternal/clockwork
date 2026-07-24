@@ -19,6 +19,7 @@ extends Node2D
 @onready var _clock: CanvasLayer = $ClockUI
 @onready var _player: CharacterBody2D = $Player
 @onready var _level_complete_ui: CanvasLayer = $LevelCompleteUI
+@onready var _game_complete_ui: CanvasLayer = $GameCompleteUI
 
 func _ready() -> void:
 	_flag.player_won.connect(_on_player_won)
@@ -34,17 +35,15 @@ func _on_player_won() -> void:
 	# the key, so the level select screen works for any number of
 	# levels without hardcoding names.
 	ProgressTracker.mark_completed(scene_file_path)
-	# Hand off to the LevelCompleteUI. It handles the fade-in, the
-	# input wait, and emits `continue_pressed` when the player
-	# confirms. We just await that signal to know when to advance.
+	# Two paths after a win: if there's a next level, show the
+	# LevelCompleteUI (which waits for Space/Enter and advances).
+	# If not (L3 is the last level), show the GameCompleteUI which
+	# has a Back to Main Menu button.
+	if next_level_path.is_empty():
+		_game_complete_ui.show_end_screen()
+		return
 	_level_complete_ui.show_win_screen()
 	await _level_complete_ui.continue_pressed
-
-	# Advance to the next level, or end the game if no next is set.
-	if next_level_path.is_empty():
-		print("[level] no next level set — game over (placeholder)")
-		# TODO: end-screen UI
-		return
 	get_tree().change_scene_to_file(next_level_path)
 
 func _on_player_died() -> void:
