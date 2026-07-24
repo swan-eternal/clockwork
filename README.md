@@ -141,17 +141,57 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 
 ## Backlog
 
-*(Grows as we work. Highest priority first.)*
+*(Two-tier: **In Flight** for active work, **TODO** for forward-looking features/art/music/UI/tuning. Prioritized within each section.)*
+
+### In Flight
 
 - [ ] **Tilemap setup** — Jason assigns a TileSet to the `TileMapLayer` in the template, paints wall tiles + L1/L2/L3 geometry
 - [ ] `scenes/levels/L1.tscn`, `L2.tscn`, `L3.tscn` — inherited scenes from `level_template.tscn` with per-level tile data, Flag position, Player spawn, and `next_level_path` overrides
 - [ ] Input remapping (GravityDirection enum + remapped player input)
 - [ ] Death zone prototype + spike tile (Area2D in `death_zones` group) + `Player.died` signal
 - [ ] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
-- [ ] `main_menu.tscn` (styled start button + fade transition)
 - [ ] `level_select.tscn` (L1/L2/L3 list with completion state)
 - [ ] Audio (SFX for tick, win, die, rotate)
 - [ ] Visual polish on rotation (camera shake? quick zoom? particles?)
 - [ ] AnimatedSprite2D swap when player art lands
 - [ ] Tutorial / first-30-seconds UX
 - [ ] Jam submission checklist — web build, trailer, itch.io page
+
+### TODO
+
+Forward-looking, prioritized within each category. Pick from here when in-flight items settle.
+
+#### Features and Mechanics
+
+- [ ] **Visible square for level design** — debug overlay showing the play area boundary, toggleable in the inspector. Useful for placing tiles precisely during L1–L3 painting.
+- [ ] **Moving platforms** — weighted platforms (slide down under gravity) and balloon platforms (rise against gravity). Both are children of `RotatingLevelComponents` so they rotate with the world.
+- [ ] **Pause countdown clock while rotation is happening** — so the player doesn't lose time during the rotation animation. Currently the clock continues ticking during the tween.
+
+#### Art / Design
+
+- [ ] Finalize character sprite and animations (LibreSprite, replace Polygon2D placeholder)
+- [ ] Settle on tilemap spritesheet
+- [ ] VFX, shaders, particle effects (TBD — low priority until core loop is solid)
+- [ ] Replace digital countdown with analog clock face
+
+#### Music
+
+- [ ] One song at 120bpm, changes feel every 10 seconds (synced to clock cycles — section change on each `countdown_zero` signal)
+
+#### Level Design
+
+- [ ] Build 3–5 levels of increasing complexity (L1=First rotation, L2=Corner puzzle, L3=Multi-step, possibly L4–L5)
+
+#### UI Elements
+
+- [ ] Pause menu: Back to Main Menu, Settings, Restart buttons
+- [ ] Settings menu:
+  - [ ] Audio: master, music, SFX volume
+  - [ ] Visual: VFX intensity, brightness, etc
+
+#### Tuning
+
+- [ ] Gravity (`player.gd` — currently 980)
+- [ ] Player move speed, jump velocity, ground deceleration (`player.gd` exports)
+- [ ] Friction values per surface (TileSet custom data — set after spritesheet is settled)
+- [ ] Rotation timer and speed (`RotatingLevelComponents.rotation_speed` + `ClockUI.STARTING_SECONDS`)
