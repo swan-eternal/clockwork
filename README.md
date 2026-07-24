@@ -166,6 +166,7 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 - [ ] **Visible square for level design** — debug overlay showing the play area boundary, toggleable in the inspector. Useful for placing tiles precisely during L1–L3 painting.
 - [ ] **Moving platforms** — weighted platforms (slide down under gravity) and balloon platforms (rise against gravity). Both are children of `RotatingLevelComponents` so they rotate with the world.
 - [ ] **Pause countdown clock while rotation is happening** — so the player doesn't lose time during the rotation animation. Currently the clock continues ticking during the tween.
+- [ ] **Game over / retry UI** — when the player dies, what shows? Currently `level.gd` just resets silently. A brief "you died" / "spikes!" overlay for ~0.5s before the reset would make death feel intentional rather than a glitch.
 
 #### Art / Design
 
@@ -173,10 +174,12 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 - [ ] Settle on tilemap spritesheet
 - [ ] VFX, shaders, particle effects (TBD — low priority until core loop is solid)
 - [ ] Replace digital countdown with analog clock face
+- [ ] **Level transition visual** — fade-to-black on win and fade-in on next level. Currently `change_scene_to_file` is instant, which makes the win flow feel abrupt and exposes any scene-loading hitches.
 
 #### Music
 
 - [ ] One song at 120bpm, changes feel every 10 seconds (synced to clock cycles — section change on each `countdown_zero` signal)
+- [ ] **Player action SFX** — jump and land sounds. The current SFX list covers "tick, win, die, rotate" but misses the two most frequent platformer actions. ~2-3 lines in `player.gd` (play on jump, play on `is_on_floor` transition).
 
 #### Level Design
 
@@ -185,9 +188,13 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 #### UI Elements
 
 - [ ] Pause menu: Back to Main Menu, Settings, Restart buttons
+- [ ] **Pause menu integration** — wiring (input suppression, animation pause, gameplay freeze). The visual design is in the pause menu item above; this is the actual gameplay integration.
 - [ ] Settings menu:
+  - [ ] **Audio bus setup** — actual `AudioBus` entries in `project.godot` for master/music/SFX. Without these, the audio sliders are non-functional. ~5min setup once you decide on bus names.
   - [ ] Audio: master, music, SFX volume
+  - [ ] **Settings persistence** — save audio/volume/brightness/VFX to disk so they survive across game launches. ~10 lines with `ConfigFile`.
   - [ ] Visual: VFX intensity, brightness, etc
+- [ ] **Credits screen** — about the game / music credits / open-source asset attribution (Kenney tilesets, etc).
 
 #### Tuning
 
