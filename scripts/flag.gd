@@ -9,6 +9,11 @@ extends Area2D
 
 signal player_won
 
+# SFX — AudioStreamPlayer child configured in flag.tscn with the win
+# stream. Plays on the same frame the flag detects the player, so it
+# lands with the LevelCompleteUI fade-in kicked off by level.gd.
+@onready var _win_sound: AudioStreamPlayer = $WinSound
+
 func _ready() -> void:
 	# Wire the Area2D's body_entered signal. The flag itself doesn't
 	# need to be in any group — it's a *target* for the player's
@@ -21,4 +26,5 @@ func _on_body_entered(body: Node2D) -> void:
 	# level tiles, etc. The co-add rule from MEMORY.md applies: the
 	# `add_to_group("player")` call lives in player.gd._ready.
 	if body.is_in_group("player"):
+		_win_sound.play()
 		player_won.emit()

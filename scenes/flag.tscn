@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/flag.gd" id="1_flag"]
+[ext_resource type="AudioStream" uid="uid://cbuf0gpxsc78p" path="res://assets/sounds/CountDownWinSound.mp3" id="2_winsound"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_flag"]
 size = Vector2(24, 40)
@@ -14,3 +15,6 @@ shape = SubResource("RectangleShape2D_flag")
 [node name="Visual" type="Polygon2D" parent="."]
 color = Color(0.95, 0.85, 0.2, 1)
 polygon = PackedVector2Array(-12, -20, 12, -20, 12, 20, -12, 20)
+
+[node name="WinSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_winsound")
