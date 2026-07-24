@@ -5,73 +5,13 @@
 [ext_resource type="TileSet" uid="uid://6ybxnwbci41c" path="res://assets/sprites/tiles/basetileset.tres" id="3_770am"]
 [ext_resource type="Script" uid="uid://b8wl6gq4uva2g" path="res://scripts/rotating_level_components.gd" id="3_rlc"]
 [ext_resource type="PackedScene" path="res://scenes/flag.tscn" id="4_flag"]
+[ext_resource type="Script" uid="uid://b8px15fmkadhi" path="res://scripts/level.gd" id="5_level"]
 [ext_resource type="PackedScene" path="res://scenes/level_complete_ui.tscn" id="6_lcui"]
 [ext_resource type="PackedScene" path="res://scenes/game_complete_ui.tscn" id="7_gcui"]
 [ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_pm"]
 
-[sub_resource type="GDScript" id="GDScript_cdatj"]
-script/source = "extends Node2D
-##
-## Level orchestrator for Clockwork — sits on the root of a level scene.
-## Catches Flag.player_won and runs the win flow:
-##   1. Pause the clock so the world stops rotating.
-##   2. Show the LevelCompleteUI (fades in, waits for Space/Enter).
-##   3. Transition to the next level (or end the game if no next).
-##
-## Catches Player.died and runs the death flow:
-##   1. The player has already done the death animation (flash → hide).
-##   2. Reload the scene to reset everything to its starting state.
-##
-
-# Path to the next level scene. Empty = end of the game.
-# Set per-level via the Inspector on the inherited scene.
-@export var next_level_path: String = \"\"
-
-@onready var _flag: Area2D = $RotatingLevelComponents/Flag
-@onready var _clock: CanvasLayer = $ClockUI
-@onready var _player: CharacterBody2D = $Player
-@onready var _level_complete_ui: CanvasLayer = $LevelCompleteUI
-@onready var _game_complete_ui: CanvasLayer = $GameCompleteUI
-
-func _ready() -> void:
-	_flag.player_won.connect(_on_player_won)
-	_player.died.connect(_on_player_died)
-
-func _on_player_won() -> void:
-	# Pause the clock so rotation halts — the world freezes on the
-	# moment of victory.
-	_clock.pause()
-	# Mark this level complete for the level select screen's progress
-	# indicator. Uses this node's scene_file_path (the .tscn this
-	# scene was loaded from, e.g. \"res://scenes/levels/L1.tscn\") as
-	# the key, so the level select screen works for any number of
-	# levels without hardcoding names.
-	ProgressTracker.mark_completed(scene_file_path)
-	# Two paths after a win: if there's a next level, show the
-	# LevelCompleteUI (which waits for Space/Enter and advances).
-	# If not (L3 is the last level), show the GameCompleteUI which
-	# has a Back to Main Menu button.
-	if next_level_path.is_empty():
-		_game_complete_ui.show_end_screen()
-		return
-	_level_complete_ui.show_win_screen()
-	await _level_complete_ui.continue_pressed
-	get_tree().change_scene_to_file(next_level_path)
-
-func _on_player_died() -> void:
-	# The player has already done the death animation (flash → hide)
-	# before emitting `died`. Reload the scene to reset the level:
-	# player position, clock, and any other transient state.
-	#
-	# reload_current_scene() is a full re-instantiation, which is the
-	# simplest reset for a jam. A softer reset (manually re-positioning
-	# the player + resetting the clock) would be cheaper but couples
-	# this orchestrator to all the level's per-node state.
-	get_tree().reload_current_scene()
-"
-
-[node name="Main2" type="Node2D" unique_id=2143881974]
-script = SubResource("GDScript_cdatj")
+[node name="Main" type="Node2D" unique_id=2143881974]
+script = ExtResource("5_level")
 
 [node name="RotatingLevelComponents" type="Node2D" parent="." unique_id=545839711]
 position = Vector2(576, 324)
@@ -90,11 +30,8 @@ position = Vector2(400, 324)
 
 [node name="ClockUI" parent="." unique_id=743016643 instance=ExtResource("2_clock")]
 
-[node name="LevelCompleteUI" parent="." unique_id=1026192800 instance=ExtResource("6_lcui")]
-visible = false
+[node name="LevelCompleteUI" parent="." instance=ExtResource("6_lcui")]
 
-[node name="GameCompleteUI" parent="." unique_id=1075486015 instance=ExtResource("7_gcui")]
-visible = false
+[node name="GameCompleteUI" parent="." instance=ExtResource("7_gcui")]
 
-[node name="PauseMenu" parent="." unique_id=1894494209 instance=ExtResource("8_pm")]
-visible = false
+[node name="PauseMenu" parent="." instance=ExtResource("8_pm")]
