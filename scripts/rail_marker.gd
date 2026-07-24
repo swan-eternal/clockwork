@@ -4,42 +4,21 @@ extends Node2D
 ## Marker node for rail endpoints. Used by BalloonPlatform and
 ## WeightPlatform so the level designer can drag the rail start
 ## and end in the 2D editor instead of typing numbers in the
-## Inspector. Emits a signal when the marker moves in the editor,
-## so the parent platform can react (e.g. enforce a vertical /
-## horizontal / diagonal lock between the two markers).
+## Inspector.
 ##
 
-# Emitted when this marker is moved in the editor. The parent
-# platform listens for this and may snap the other marker to
-# maintain a constraint (e.g. vertical / horizontal lock).
+# Emitted when this marker is moved in the editor. (Currently unused
+# — the constraint feature was rolled back — but kept here in case
+# we want it again later.)
 signal position_manually_set(new_pos: Vector2)
 
-# Cached position for change detection. The @tool _process polls
-# the editor every frame; if the position differs from the cached
-# value, the signal is emitted. At runtime _process is short-circuited
-# by the Engine.is_editor_hint() check, so there's no per-frame cost
-# outside the editor.
-var _last_pos: Vector2 = Vector2.ZERO
-var _last_pos_initialized: bool = false
 
-
-func _process(_delta: float) -> void:
-	# Only poll in the editor. At runtime the markers are static
-	# (set once from the .tscn at scene load), so there's no point
-	# checking for changes.
+# Draw a small circle in the editor so the marker is visually
+# distinct and easy to find in the Scene tree. The circle is
+# centered on the marker's local origin. Drawn only in the editor
+# (Engine.is_editor_hint() check) so it doesn't show at runtime.
+func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
-	# First frame after the scene loads in the editor: record the
-	# marker's initial position without emitting. The position is
-	# being populated from the .tscn, not from a user drag, so this
-	# is a "set up" frame, not a "user moved" frame.
-	if not _last_pos_initialized:
-		_last_pos = position
-		_last_pos_initialized = true
-		return
-	# Position changed since the previous frame — the user dragged
-	# the marker in the editor. Emit so the parent can react (snap
-	# the other marker to maintain a direction lock).
-	if position != _last_pos:
-		_last_pos = position
-		position_manually_set.emit(position)
+	draw_circle(Vector2.ZERO, 6.0, Color(0.3, 0.6, 1.0, 0.8))
+	draw_arc(Vector2.ZERO, 6.0, 0.0, TAU, 16, Color(0.1, 0.4, 0.9, 1.0), 1.0)
