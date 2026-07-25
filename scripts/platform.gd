@@ -137,6 +137,11 @@ func _physics_process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 
+	# DEBUG: per-frame collision tracking (remove after diagnosis).
+	var _cs: CollisionShape2D = _rigid_body.get_node("CollisionShape2D")
+	print("rb.pos=", _rigid_body.position, " rb.global=", _rigid_body.global_position,
+		" cs.global=", _cs.global_position, " is_rotating=", _is_rotating)
+
 	# Pause during the rotation tween.
 	if _is_rotating:
 		return
@@ -167,6 +172,16 @@ func _physics_process(delta: float) -> void:
 	# position rotates automatically via the SceneTree transform
 	# hierarchy. The motion is in local frame.
 	_rigid_body.position = rail_end * _t
+	# Debug — remove after diagnosis
+	var _collision_shape: CollisionShape2D = _rigid_body.get_node("CollisionShape2D")
+	var _sprite: Sprite2D = _rigid_body.get_node("Sprite2D")
+	print("--- platform debug ---")
+	print("  rb.pos=", _rigid_body.position, " rb.global=", _rigid_body.global_position)
+	print("  rb.freeze=", _rigid_body.freeze, " rb.freeze_mode=", _rigid_body.freeze_mode)
+	print("  parent.rot=", get_parent().rotation)
+	print("  cs.pos=", _collision_shape.position, " cs.global=", _collision_shape.global_position)
+	print("  sp.pos=", _sprite.position, " sp.global=", _sprite.global_position)
+
 
 
 # Called when the level rotation tween starts. Freezes the platform
