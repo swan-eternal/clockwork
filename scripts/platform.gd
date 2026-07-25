@@ -1,3 +1,4 @@
+@tool
 extends Node2D
 ##
 ## Scripted moving platform. Pretends to be driven by gravity: when
@@ -99,6 +100,13 @@ func _ready() -> void:
 	_t = clampf(starting_position, 0.0, 1.0)
 	_update_position()
 	_update_rail_preview()
+	# Runtime-only: signal connection + initial gravity sync. Gate
+	# with is_editor_hint so @tool doesn't connect signals in the
+	# editor (they don't fire there anyway, but connecting is wasted
+	# work and the initial sync would mark the platform active based
+	# on the editor's view of gravity).
+	if Engine.is_editor_hint():
+		return
 	# Listen to gravity changes from the Player. The Player is the
 	# source of truth for gravity_direction; initial sync applies the
 	# current gravity so the platform is moving immediately at scene
@@ -111,6 +119,10 @@ func _ready() -> void:
 			player.gravity_changed.connect(_on_gravity_changed)
 
 func _physics_process(delta: float) -> void:
+	# Skip motion in the editor -- @tool runs _physics_process, but
+	# we only want motion at runtime.
+	if Engine.is_editor_hint():
+		return
 	if not _active:
 		return
 	_t += _direction * (motion_speed / _rail_length) * delta
