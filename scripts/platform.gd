@@ -112,6 +112,61 @@ func _ready() -> void:
 	_rigid_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 	# The platform is always being driven by the script (never settles
 	# on its own), so it must never sleep. Setting this in the script
+	# (not just the .tscn) overrides the default on instances
+	# created before this property was added to the platform scene —
+	# without it, an old instance carries can_sleep = true and the
+	# body sleeps during the OFF half of the ON/OFF cycle, which
+	# culls the parent Platform's _physics_process and strands the
+	# platform at a wrong position. wake_up() handles the case where
+	# the body was already sleeping when this scene loaded.
+	_rigid_body.can_sleep = false
+	_rigid_body.wake_up()
+	# The platform is always being driven by the script (never settles
+	# on its own), so it must never sleep. Setting this in the script
+	# (not just the .tscn) overrides the default on instances
+	# created before this property was added to the platform scene —
+	# without it, an old instance carries can_sleep = true and the
+	# body sleeps during the OFF half of the ON/OFF cycle, which
+	# culls the parent Platform's _physics_process and strands the
+	# platform at a wrong position. wake_up() handles the case where
+	# the body was already sleeping when this scene loaded.
+	_rigid_body.can_sleep = false
+	_rigid_body.wake_up()
+	# The platform is always being driven by the script (never settles
+	# on its own), so it must never sleep. Setting this in the script
+	# (not just the .tscn) overrides the default on instances
+	# created before this property was added to the platform scene —
+	# without it, an old instance carries can_sleep = true and the
+	# body sleeps during the OFF half of the ON/OFF cycle, which
+	# culls the parent Platform's _physics_process and strands the
+	# platform at a wrong position. wake_up() handles the case where
+	# the body was already sleeping when this scene loaded.
+	_rigid_body.can_sleep = false
+	_rigid_body.wake_up()
+	# The platform is always being driven by the script (never settles
+	# on its own), so it must never sleep. Setting this in the script
+	# (not just the .tscn) overrides the default on instances
+	# created before this property was added to the platform scene —
+	# without it, an old instance carries can_sleep = true and the
+	# body sleeps during the OFF half of the ON/OFF cycle, which
+	# culls the parent Platform's _physics_process and strands the
+	# platform at a wrong position. wake_up() handles the case where
+	# the body was already sleeping when this scene loaded.
+	_rigid_body.can_sleep = false
+	_rigid_body.wake_up()
+	# The platform is always being driven by the script (never settles
+	# on its own), so it must never sleep. Setting this in the script
+	# (not just the .tscn) overrides the default on instances
+	# created before this property was added to the platform scene —
+	# without it, an old instance carries can_sleep = true and the
+	# body sleeps during the OFF half of the ON/OFF cycle, which
+	# culls the parent Platform's _physics_process and strands the
+	# platform at a wrong position. wake_up() handles the case where
+	# the body was already sleeping when this scene loaded.
+	_rigid_body.can_sleep = false
+	_rigid_body.wake_up()
+	# The platform is always being driven by the script (never settles
+	# on its own), so it must never sleep. Setting this in the script
 	# (not just the .tscn) overrides the default on instances created
 	# before this property was added to the platform scene — without
 	# it, an old instance carries can_sleep = true and the body
@@ -235,6 +290,41 @@ func _on_rotation_completed() -> void:
 	_is_active = not _is_active
 	if _is_active:
 		_direction *= -1.0
+		# Belt-and-suspenders against the OFF-state "stable body →
+		# sleep → script culled" trap. can_sleep = false in _ready()
+		# should prevent this in the normal case, but if the body
+		# did manage to sleep during the OFF cycle, this wake-up
+		# kick ensures the next ON frame's _physics_process isn't
+		# culled.
+		_rigid_body.wake_up()
+		# Belt-and-suspenders against the OFF-state "stable body →
+		# sleep → script culled" trap. can_sleep = false in _ready()
+		# should prevent this in the normal case, but if the body
+		# did manage to sleep during the OFF cycle, this wake-up
+		# kick ensures the next ON frame's _physics_process isn't
+		# culled.
+		_rigid_body.wake_up()
+		# Belt-and-suspenders against the OFF-state "stable body →
+		# sleep → script culled" trap. can_sleep = false in _ready()
+		# should prevent this in the normal case, but if the body
+		# did manage to sleep during the OFF cycle, this wake-up
+		# kick ensures the next ON frame's _physics_process isn't
+		# culled.
+		_rigid_body.wake_up()
+		# Belt-and-suspenders against the OFF-state "stable body →
+		# sleep → script culled" trap. can_sleep = false in _ready()
+		# should prevent this in the normal case, but if the body
+		# did manage to sleep during the OFF cycle, this wake-up
+		# kick ensures the next ON frame's _physics_process isn't
+		# culled.
+		_rigid_body.wake_up()
+		# Belt-and-suspenders against the OFF-state "stable body →
+		# sleep → script culled" trap. can_sleep = false in _ready()
+		# should prevent this in the normal case, but if the body
+		# did manage to sleep during the OFF cycle, this wake-up
+		# kick ensures the next ON frame's _physics_process isn't
+		# culled.
+		_rigid_body.wake_up()
 		# Belt-and-suspenders against the OFF-state "stable body →
 		# sleep → script culled" trap. can_sleep = false in _ready()
 		# should prevent this in the normal case, but if the body
