@@ -10,6 +10,8 @@ size = Vector2(32, 32)
 script = ExtResource("1_platform")
 motion = 1
 rail_direction = Vector2(-1, 0)
+start_active = false
+initial_direction = -1.0
 
 [node name="RigidBody2D" type="RigidBody2D" parent="."]
 freeze = true

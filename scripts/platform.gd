@@ -36,6 +36,16 @@ enum MotionType { WEIGHT, BUOYANT }
 ## (0, 1) for Y-axis (down), (1, 0) for X-axis (right), etc.
 @export_storage var rail_direction: Vector2 = Vector2(0, 1)
 
+## Initial ON/OFF state. Set by the scene preset: true for Y platforms
+## (start moving immediately), false for X platforms (start stationary,
+## move after the first rotation).
+@export_storage var start_active: bool = true
+
+## Initial direction of motion. Set by the scene preset: +1 for Y
+## platforms, -1 for X platforms (so that after the first OFF → ON
+## flip, the platform moves toward the rail end).
+@export_storage var initial_direction: float = 1.0
+
 # --- Designer-tunable @exports (shown in inspector) ---
 
 ## Constant speed in pixels per second. Tune per-platform in the inspector.
@@ -105,8 +115,8 @@ func _ready() -> void:
 	# — _ready() runs again and the platform returns to its starting
 	# position and ON state.
 	_t = clampf(starting_position, 0.0, 1.0)
-	_direction = 1.0
-	_is_active = true
+	_direction = initial_direction
+	_is_active = start_active
 	var rail_end := _compute_rail_end()
 	_rigid_body.position = rail_end * _t
 
