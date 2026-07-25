@@ -15,8 +15,14 @@ extends Node2D
 ## Architecture: Node2D wrapper for editor ergonomics (drag handle +
 ## @export inspector on the wrapper); AnimatableBody2D as the kinematic
 ## collision carrier (player rides via collision); Line2D as a sibling
-## for editor-visible rail extent, updated by setters so inspector
-## changes show up live.
+## for editor-visible rail extent.
+##
+## Editor reactivity: setters look up the AnimatableBody2D and Line2D
+## via get_node_or_null() rather than @onready references, so they work
+## in the editor (where _ready() doesn't run) as well as at runtime.
+## @onready vars are null in the editor and would silently no-op the
+## updates; get_node_or_null returns the nodes whenever they're in
+## the tree (editor or runtime).
 ##
 
 ## WEIGHT: falls with gravity. BUOYANT: rises against gravity.
@@ -34,34 +40,42 @@ enum Axis { X, Y }
 @export var motion_type: MotionType = MotionType.WEIGHT
 
 ## Rail axis. X = horizontal. Y = vertical (default -- most platformer
-## platforms are vertical).
+## platforms are vertical). Setter updates the rail preview and the
+## platform body's position so inspector changes show up live.
 @export var axis: Axis = Axis.Y:
 	set(value):
 		axis = value
 		_rail_direction = Vector2.RIGHT if axis == Axis.X else Vector2.DOWN
-		if is_inside_tree():
-			_update_rail_preview()
-			_update_position()
+		_update_rail_preview()
+		_update_position()
 
 ## Rail length in units of 32 pixels (matching the default tile size).
 ## rail_length_units=2 -> 64px, =3 -> 96px, etc. Snaps to grid by design.
+## Setter updates the rail preview and platform position.
 @export_range(1, 16, 1) var rail_length_units: int = 3:
 	set(value):
 		rail_length_units = value
 		_rail_length = float(value) * TILE_SIZE
-		if is_inside_tree():
-			_update_rail_preview()
-			_update_position()
+		_update_rail_preview()
+		_update_position()
 
 ## Initial t along the rail. 0 = at wrapper origin, 1 = at rail_length
-## away along the axis. Slider range 0..1.
-@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.0
+## away along the axis. Slider range 0..1. Setter moves the platform
+## body so the starting position is visible in the editor (and re-applied
+## at runtime if changed).
+@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.0:
+	set(value):
+		starting_position = value
+		_t = clampf(value, 0.0, 1.0)
+		_update_position()
 
 ## Constant lerp speed in pixels per second.
 @export var motion_speed: float = 60.0
 
-@onready var _body: AnimatableBody2D = $AnimatableBody2D
-@onready var _rail_preview: Line2D = $RailPreview
+# AnimatableBody2D and Line2D are looked up via get_node_or_null() in
+# _update_position() / _update_rail_preview() rather than cached as
+# @onready vars. This is so the setters work in the editor (where
+# _ready() doesn't run and @onready vars are null).
 
 const TILE_SIZE := 32.0
 
@@ -69,7 +83,8 @@ const TILE_SIZE := 32.0
 var _rail_direction: Vector2 = Vector2.DOWN  # Vector2.RIGHT or Vector2.DOWN
 var _rail_length: float = TILE_SIZE * 3.0
 
-# Normalized position along the rail (0..1). Set by gravity_changed signal.
+# Normalized position along the rail (0..1). Set by starting_position
+# setter and by _on_gravity_changed at runtime.
 var _t: float = 0.0
 # +1 toward rail_end, -1 toward rail_start. Set by _on_gravity_changed.
 var _direction: float = 1.0
@@ -77,6 +92,10 @@ var _direction: float = 1.0
 var _active: bool = false
 
 func _ready() -> void:
+	# _t was already set by the starting_position setter. Re-apply in
+	# case the setter didn't run (e.g., if the node was instantiated
+	# without going through the script's setter chain -- e.g., loading
+	# a scene where some children aren't yet in the tree).
 	_t = clampf(starting_position, 0.0, 1.0)
 	_update_position()
 	_update_rail_preview()
@@ -117,9 +136,18 @@ func _on_gravity_changed(new_gravity: Vector2) -> void:
 	_direction = motion_sign
 	_active = true
 
+# Updates the platform body's local position along the rail. Looks up
+# the body via get_node_or_null() (not @onready) so this works in the
+# editor as well as at runtime -- @onready vars are null in the editor
+# since _ready() doesn't run without @tool.
 func _update_position() -> void:
-	_body.position = _rail_direction * (_rail_length * _t)
+	var body := get_node_or_null("AnimatableBody2D") as AnimatableBody2D
+	if body:
+		body.position = _rail_direction * (_rail_length * _t)
 
+# Updates the editor-visible Line2D rail preview. Looks up the Line2D
+# via get_node_or_null() (not @onready) so this works in the editor.
 func _update_rail_preview() -> void:
-	if _rail_preview:
-		_rail_preview.points = [Vector2.ZERO, _rail_direction * _rail_length]
+	var preview := get_node_or_null("RailPreview") as Line2D
+	if preview:
+		preview.points = [Vector2.ZERO, _rail_direction * _rail_length]
