@@ -211,12 +211,10 @@ func _physics_process(delta: float) -> void:
 
 	# move_and_slide resolves collisions against walls / platforms using
 	# this body's CollisionShape2D. Must be the LAST physics line —
-	# anything after it reads the post-collision velocity.
-	# Pass -gravity_direction as the up_direction so move_and_slide
-	# uses the correct "up" for collision and sliding (default is
-	# Vector2.UP which only matches our setup when gravity is straight
-	# down).
-	move_and_slide(-gravity_direction)
+	# anything after it reads the post-collision velocity. Uses the
+	# up_direction property (set by _rotate_gravity_cw) to determine
+	# the "up" direction for collision resolution and slope sliding.
+	move_and_slide()
 
 	# Debug output: print state to console every debug_poll_interval
 	# seconds. Toggle off via debug_output = false in the inspector.
@@ -350,5 +348,9 @@ func _die() -> void:
 
 # Rotates gravity 90° clockwise. Called on each ClockUI.countdown_zero
 # signal. 90° CW in Godot 2D is -PI/2 radians (rotation is CCW-positive).
+# Also updates up_direction so move_and_slide uses the correct "up" for
+# collision resolution and slope sliding — defaults to Vector2.UP which
+# only matches our setup when gravity is straight down.
 func _rotate_gravity_cw() -> void:
 	gravity_direction = gravity_direction.rotated(-PI / 2.0)
+	up_direction = -gravity_direction
