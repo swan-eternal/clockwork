@@ -181,12 +181,12 @@ func _update_platform_size() -> void:
 		# Vertical rail: long side horizontal.
 		shape.size = Vector2(60, 30)
 		if polygon:
-			polygon.polygon = PackedVector2Array(-30, -15, 30, -15, 30, 15, -30, 15)
+			polygon.polygon = PackedVector2Array([Vector2(-30, -15), Vector2(30, -15), Vector2(30, 15), Vector2(-30, 15)])
 	else:
 		# Horizontal rail: long side vertical.
 		shape.size = Vector2(30, 60)
 		if polygon:
-			polygon.polygon = PackedVector2Array(-15, -30, 15, -30, 15, 30, -15, 30)
+			polygon.polygon = PackedVector2Array([Vector2(-15, -30), Vector2(15, -30), Vector2(15, 30), Vector2(-15, 30)])
 
 # Updates the platform body's local position along the rail. Looks up
 # the body via get_node_or_null() (not @onready) so this works in the
