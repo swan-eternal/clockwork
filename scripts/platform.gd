@@ -207,11 +207,18 @@ func _physics_process(delta: float) -> void:
 	# world-frame direction ends up following the rotation.
 	var local_force: Vector2 = get_parent().global_transform.affine_inverse().basis_xform(world_force)
 
-	# Project onto the rail direction.
+	# Project onto the rail direction. Result is in px/s² (force
+	# projected onto a unit-direction vector). The integrator below
+	# treats _velocity in t-units/s (fractional rail advance per
+	# second), so we divide by rail_length here to convert px/s² into
+	# t-units/s². Without this normalization, gravity=980 would slam
+	# _t from 0 to 1 in well under a second, and tuning the value
+	# wouldn't have a usable range.
 	var force_along_rail: float = local_force.dot(_rail_direction)
+	var rail_accel: float = force_along_rail / rail_length
 
 	# Integrate. Force is acceleration (mass = 1).
-	_velocity += force_along_rail * delta
+	_velocity += rail_accel * delta
 	_t += _velocity * delta
 
 	# Clamp at endpoints. Stop at the boundary (no bounce, no reverse).
