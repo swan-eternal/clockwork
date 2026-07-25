@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://dgqfp03n8tduj"]
 
 [ext_resource type="PackedScene" uid="uid://crnd0esc4rrl4" path="res://scenes/level_template.tscn" id="1_sbb6c"]
-
+[ext_resource type="PackedScene" uid="uid://cw7lam2x4pq1a" path="res://scenes/platform.tscn" id="2_sbb6c"]
 
 [node name="Main" unique_id=1856611590 instance=ExtResource("1_sbb6c")]
 
@@ -12,20 +12,32 @@ metadata/_edit_lock_ = true
 [node name="Flag" parent="." index="1" unique_id=905225718]
 position = Vector2(342, 93)
 
-
-[node name="Player" parent="." index="1" unique_id=1932304678]
+[node name="Player" parent="." index="2" unique_id=1932304678]
 position = Vector2(599, 543)
 RUN_SPEED = 500.0
 JUMP_VELOCITY = -500.0
-GRAVITY = 1500.0
 GROUND_DECEL = 500.0
 DOWN_BOOST = 3000.0
 
-[node name="LevelCompleteUI" parent="." index="3"]
+[node name="LevelCompleteUI" parent="." index="4"]
 visible = false
 
-[node name="GameCompleteUI" parent="." index="4"]
+[node name="GameCompleteUI" parent="." index="5"]
 visible = false
 
-[node name="PauseMenu" parent="." index="5"]
+[node name="PauseMenu" parent="." index="6"]
 visible = false
+
+[node name="Platform" parent="." index="7" unique_id=174724998 instance=ExtResource("2_sbb6c")]
+position = Vector2(585, 309)
+
+[node name="Platform2" parent="." index="8" unique_id=1842358216 instance=ExtResource("2_sbb6c")]
+position = Vector2(742, 308)
+rail_length_units = 5
+
+[node name="Platform3" parent="." index="9" unique_id=1190770192 instance=ExtResource("2_sbb6c")]
+position = Vector2(502, 309)
+
+[node name="Platform4" parent="." index="10" unique_id=753379520 instance=ExtResource("2_sbb6c")]
+position = Vector2(658, 313)
+axis = 0

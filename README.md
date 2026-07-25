@@ -4,30 +4,42 @@
 
 ## Status
 
-Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node). **Refactor + system layers landed same day** (`8b23903` → `aec3d3d` → `b021b65`): wrapper renamed `Walls` → `RotatingLevelComponents` (rotating-by-default — anything that's "part of the level" is a child of this node, so it spins with the world); the 4 StaticBody2D walls were replaced with an empty `TileMapLayer` (Jason paints wall tiles + level geometry in the tilemap); `flag.tscn` + `level.gd` orchestrator added (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`); `scenes/level_template.tscn` built as the parent scene L1/L2/L3 inherit from; `scenes/main.tscn` is now a thin pass-through to the template. **Next layer:** tilemap setup (Jason assigns a TileSet in the editor and paints), main menu, level select. **Death system + LevelCompleteUI landed 2026-07-24** (`0780a0c` → `d0b3ad4`): tilemap-based spike death zones (`physics_layer_1` + DeathDetector Area2D on the player + `Player.died` signal + level reset), `level_complete_ui.tscn` (fade-in win screen with "Press [Space] to continue" prompt, replaces the `print()` placeholder in `level.gd`).
+**Skeleton shipped 2026-07-23** (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` wrapper (since removed) for level rotation, `flag.tscn` + `level.gd` orchestrator (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`), `scenes/level_template.tscn` as the parent scene L1/L2/L3 inherit from, `scenes/main.tscn` as a thin pass-through to the template. **Death system + LevelCompleteUI landed 2026-07-24** (`0780a0c` → `d0b3ad4`): tilemap-based spike death zones, level reset on `Player.died`.
 
-**Moving platforms rewritten 2026-07-25** (V3, "fake it" approach): four scene presets (`platform_weight_y.tscn`, `platform_weight_x.tscn`, `platform_buoyant_y.tscn`, `platform_buoyant_x.tscn`) share one script (`scripts/platform.gd`). The motion is fully scripted — no physics forces, no rotation-frame math. The platform lerps between `rail_start` and `rail_end` at constant speed; `t` is clamped at the endpoints (no bounce, no loop); direction reversal happens every 2 rotations (180°) via `_direction *= -1` on `rotation_completed` after toggling ON/OFF state, not by the endpoints. The platform is stationary on the "off" half of the cycle. The platform also pauses during rotation so the player can get on or off. `RigidBody2D` + `freeze = true` + `freeze_mode = FREEZE_MODE_KINEMATIC` is the kinematic collision carrier (player rides it) — the only reason there's a physics body. Deleted the prior physics-based implementation (`platform.gd`, `platform.tscn`, `fake_platform.gd`, `fake_platform.tscn`, `balloon.tscn`, `balloon_platform.tscn`, `weight_platform.tscn`).
+**Major design pivot 2026-07-25** — the level no longer rotates. Instead, the player's *perception* rotates: gravity direction, camera rotation, and gravity-relative input all stay locked to the player's frame. The level stays static; the world around the player appears to shift because the camera tweens to keep "down" pointing down on screen. Simpler implementation, no per-frame rotation math, no rotation-frame collision.
+
+- **Phase 1 — cut rotation** (`e93eb10`): Removed `RotatingLevelComponents` wrapper + all moving-platform scripts/scenes (later re-added in v2). TileMapLayer + Flag are now direct children of Main.
+- **Phase 2 — gravity rotation** (`ecc07f6` + fix `09fd3cc`): `Player.gravity_direction` rotates 90° CW on each `ClockUI.countdown_zero`. Applied to gravity, jump, down-boost, slope-slide, and `up_direction` (so `move_and_slide` uses the correct "up").
+- **Phase 3 — camera rotation** (`e909f73` + fix `9dd3329`): `Camera2D` created programmatically as child of Player (follows automatically). `_rotate_gravity_cw()` tweens `_camera.rotation` to `gravity_direction.angle() - PI/2` over `camera_rotation_duration` seconds (default 0.25s). Fixes: `Camera2D.ignore_rotation = false` + `make_current()` (the tween was no-op'ing visually otherwise), plus shortest-arc delta so the camera doesn't spin 270° on the third tick.
+- **Phase 4 — gravity-relative input** (`11a46fa`): `right_direction := gravity_direction.rotated(-PI/2)`. Lateral velocity projected onto right direction. "Press right" = right from the player's perspective, including walking up walls and along ceilings.
+
+**Moving platforms v2 (gravity-driven)** (`405cc1d` + `2932d97` + `e52bb04`): platforms project gravity onto their rail axis — parallel = motion (WEIGHT: in gravity direction; BUOYANT: opposite), perpendicular = no motion. This gives "every two ticks" motion naturally, since gravity rotates 90° per tick and alternates between parallel and perpendicular to a given rail axis. Inspector exposes `motion_type` (WEIGHT/BUOYANT), `axis` (X/Y), `rail_length_units` (32px tile units), `starting_position` (0..1 slider), `motion_speed`. `Line2D` sibling shows the rail extent in the editor via `@tool` + setter-driven point updates.
+
+**Other systems** (unchanged from skeleton follow-ups): `level_complete_ui.tscn` (fade-in win screen); `game_complete_ui.tscn` (end-game screen); `pause_menu.tscn` (ESC-toggled); `level_select.tscn` (L1/L2/L3 picker with completion state); `settings.tscn` (volume sliders wired to AudioServer, persistence pending).
 
 ## Concept
 
-A single-screen platformer where a **clock counts down** in the top center of the screen. When it hits zero, **the level rotates 90°** around the play area center. Reach the flag. The countdown IS the game: each tick rotates the level, so the safe floor you were standing on becomes a wall, then a ceiling, then the other wall.
+A single-screen platformer where a **clock counts down** in the top center of the screen. When it hits zero, **gravity rotates 90° clockwise** — and the camera tweens with it, so the player's "down" stays pointing down on screen while the world around them shifts. Input is gravity-relative: pressing right always means "right from the player's perspective", which after a 90° gravity rotation is now perpendicular to what it was.
+
+The countdown IS the game: each tick rotates gravity, so the safe floor you were standing on becomes a wall, then a ceiling, then the other wall — but your muscle memory of "press right to go right" still works because the input frame rotated with you. Platforms feel gravity-driven too: a "weight" platform on a vertical rail falls; rotate gravity 90° and it now moves horizontally in your new frame.
 
 The player is a small blob (sprite art later by Jason in LibreSprite). Levels are one screen — no scrolling. The whole game reads at a glance: clock, blob, flag, platforms.
 
 ## Core Loop
 
 1. **Read** the level — see where the flag is relative to the player and the platforms.
-2. **Move** with simple platformer controls (left/right + jump). Gravity currently points one of the four cardinal directions.
-3. **Watch the clock** — when it hits zero, the world rotates 90°. The blob falls toward the new "down".
-4. **Adapt** — what was a floor is now a wall. Re-plan your route.
+2. **Move** with simple platformer controls (left/right + jump). Input is gravity-relative: "right" is always the player's right, regardless of which way gravity currently points.
+3. **Watch the clock** — when it hits zero, gravity rotates 90° CW. The camera tweens to match (~0.25s), keeping your apparent "up" pointing up on screen.
+4. **Adapt** — what was a floor is now a wall, but your buttons still work because the input frame rotated with you. Re-plan your route.
 5. **Reach the flag** — touch it to win the level.
 6. **Restart or advance** — death resets the level; reaching the flag advances to the next (L1 → L2 → L3 → end).
 
 ## Locked Mechanics
 
 - **Single screen** — no scrolling, no transitions. One screen = one level.
-- **Clock is the timer and the trigger.** When it hits zero, the level rotates 90° around the play area center.
-- **Level rotation is the only verb.** No enemies, no powerups in the jam scope. Hazards (spikes) exist for the death system but are static tiles, not actors.
+- **Clock is the timer and the trigger.** When it hits zero, gravity rotates 90° CW (camera tween tracks it).
+- **Gravity-driven platforms.** Platforms move only when gravity is along their rail axis (every two ticks for a given platform, alternating active/inactive). WEIGHT falls with gravity; BUOYANT rises against it.
+- **Gravity-relative input.** The player presses "right" and goes right in their own frame, regardless of world orientation. No mental remapping required.
 - **Win by touching the flag.** Touch-to-win, no additional interaction.
 - **Death = full level reset.** Player respawns at spawn, clock resets to 10, no checkpoints. Levels are short, so the reset cost is fine.
 - **Levels inherit from a single template.** All 3 levels (L1/L2/L3) are inherited scenes from `scenes/level_template.tscn` — same architecture, only the level-specific bits (tiles, flag position, player spawn, clock duration) vary.
@@ -37,17 +49,21 @@ The player is a small blob (sprite art later by Jason in LibreSprite). Levels ar
 
 - **Clock duration.** 10s default for L1; can vary per level via `@export var STARTING_SECONDS` on the ClockUI node. Lock in when we playtest L1.
 - **Tilemap source.** Jason looking at open-source options (Kenney is the strongest free source — CC0, no attribution hassle). OpenGameArt + itch.io packs as alternatives. Lock in once chosen — affects tile size, palette, what the TileSet looks like.
-- **Cumulative vs. resetting rotation.** Each tick rotates the world 90° from its current orientation (full revolution over 4 ticks) vs. snapping back to a fixed orientation each tick. **Leaning cumulative** — feels more chaotic and platformery.
+- **Platform rhythm tuning.** With gravity rotating every 10s and a platform alternating active/inactive per tick, each active period is up to 10s. Tune `motion_speed` and `rail_length_units` per level so the active period is long enough to be a puzzle, not so long it never reaches an endpoint between ticks. *Decided not to add per-platform motion during the inactive phase (no carry-over momentum, etc.); Jason said "may add later" (2026-07-25).*
 
-## Technical Approach: Rotate the World (Around the Play Area Center)
+## Technical Approach: Rotate the Player's Frame, Not the Level
 
-The level rotates 90° per clock tick by rotating the level wrapper (originally `Walls`, now `RotatingLevelComponents` Node2D) around its position `(576, 324)` — the play area center. Walls contain the 4 wall StaticBody2Ds at local positions `(-304, 0)`, `(304, 0)`, `(0, -304)`, `(0, 304)` so they spin in place. The Player, ClockUI, and (eventual) Camera2D are **siblings** of Walls, not children, so they stay in world / screen space — the world tumbles around them, not the other way around.
+The clock is the timer and the trigger. When it hits zero, three things happen together (all driven by the same `Player._rotate_gravity_cw()`):
 
-**Why pivot at the play area center, not at world origin:** the pivot has to be where the geometry is. With Walls at `(576, 324)` and walls in local coords near that, the frame spins in place. With Walls at `(0, 0)`, walls would have to be near origin (off-screen by default) and require a Camera2D + position shifting. The current setup needs no camera math. TileMapLayer doesn't change this — cell coordinates are local to the TileMapLayer's grid origin, set once and forgotten.
+1. **Gravity rotates.** `Player.gravity_direction` rotates 90° CW. Used by the player's gravity (`velocity += gravity_direction * gravity_strength * delta`), jump (`gravity_direction * JUMP_VELOCITY`), down-boost, slope-slide, and `up_direction` (so `move_and_slide` knows the new "up" for collision resolution and slope sliding).
+2. **Camera tweens to match.** `_camera.rotation` tweens to `gravity_direction.angle() - PI/2` over `camera_rotation_duration` seconds (default 0.25, inspector-tunable). After a 90° CW gravity rotation, the camera also rotates 90° CW, so world +x (where gravity now points) appears at the bottom of the screen. Visually, the world "shifts" — but the player stays upright.
+3. **Input remaps to gravity-relative.** `right_direction := gravity_direction.rotated(-PI/2)`. Lateral velocity is projected onto right direction. After gravity rotates 90°, "right" is now perpendicular to what it was — but it always means "the player's right", which is the natural interpretation for someone holding a controller.
 
-**Why we rotate the level (rather than the player):** the visual drama of watching platforms tumble is what makes this concept feel like a game rather than a physics demo. Player input stays world-relative — no remapping needed because the level rotates, the player doesn't.
+**Why this design over rotating the level:** simpler implementation (no rotation-frame collision, no per-platform-per-tick rotation math, no separate `RotatingLevelComponents` wrapper). The visual feel is different — the world appears to "shift" rather than "tumble" — but the puzzle is the same: each tick changes the geometry from the player's perspective, so route planning has to adapt.
 
-**No input remapping needed.** Pressing 'right' always moves the player right in the world. The level rotates around the player (who stays in the global frame), so input naturally stays in world coords. After a 90° rotation, the player has to mentally map "right" to the new world direction — a learnable skill, not a bug. A `GravityDirection` enum + remapping layer would fight the design.
+**Why `Camera2D` as a programmatic child of `Player`, not in the scene:** the camera follows the player automatically (parent-child transform), and rotates with the player (well, with the player's `gravity_direction` via the tween). No camera math needed; no hand-positioned Camera2D in the level scene.
+
+**Why input is gravity-relative, not world-relative:** with world-relative input, after a 90° rotation the player's "press right" would now move them up the wall — confusing and requires mental remapping per tick. Gravity-relative input means the player always presses "right" and goes "right from where they're facing", which is the natural expectation for any platformer.
 
 ## Levels / Teaching Ramp
 
@@ -59,7 +75,7 @@ Single-screen levels, each inherits from `scenes/level_template.tscn` and only v
 
 ## Systems
 
-Four cross-level systems, designed up-front so they slot into the level template cleanly.
+Five cross-level systems, designed up-front so they slot into the level template cleanly.
 
 ### Victory Flag
 
@@ -80,43 +96,49 @@ Four cross-level systems, designed up-front so they slot into the level template
 
 ### Moving Platforms
 
-Four scene presets (Weight × {Y, X} and Buoyant × {Y, X}) share one script (`scripts/platform.gd`). The motion is fully scripted — no physics forces, no rotation-frame math. The platform lerps between two local-frame endpoints at constant speed. The `RigidBody2D` is a kinematic collision carrier so the player can ride it.
+One scene preset (`scenes/platform.tscn`) — direction is just a vector set per instance in the inspector, so one generic preset replaces the OLD 4-preset (WEIGHT_Y/X, BUOYANT_Y/X) scheme.
 
-**Architecture** (Node2D wrapper + RigidBody2D child):
+**Architecture** (Node2D wrapper + AnimatableBody2D child):
 
 ```
 Platform (Node2D + script)
-└── RigidBody2D (freeze=true, KINEMATIC)
+└── AnimatableBody2D
     ├── CollisionShape2D (RectangleShape2D, sized in editor)
-    └── Sprite2D (texture set in editor)
+    └── Polygon2D (placeholder visual; Sprite2D slot ready for real art)
 ```
 
-The wrapper Node2D exists for editor ergonomics — the `CollisionShape2D` hijacks the drag handle if it's directly on the `RigidBody2D`, and the inspector on a bare `RigidBody2D` is empty. The script lives on the wrapper, the `RigidBody2D` is configured in `_ready()` (freeze + KINEMATIC), and the collision / sprite size is set on the children per instance.
+The wrapper Node2D exists for editor ergonomics — the `CollisionShape2D` hijacks the drag handle if it's directly on the `AnimatableBody2D`, and the inspector on a bare `AnimatableBody2D` is empty. The script lives on the wrapper.
 
-- **Why scripted motion**: the previous implementation transformed gravity into the parent's local frame via `basis_xform(force)` and projected it onto the rail. That was brittle — speed went to zero when the rail was perpendicular to world-down, frame-rate dependent, and the editor's SubViewport had no `global_transform`. Constant-speed scripted motion sidesteps all of that.
-- **Motion logic**: `t` is the normalized position along the rail (0..1), where `t = 0` is at `rail_start` and `t = 1` is at `rail_end`. Each `_physics_process` step: `t += (motion_speed / rail_length) * delta` (clamped to `[0, 1]`). The `RigidBody2D`'s `position` is set to `rail_start.lerp(rail_end, t)` every frame. The lerp is exact — no accumulated drift.
-- **Endpoint behavior**: clamp, no bounce, no loop. The platform reaches the endpoint and waits for the next rotation.
-- **ON/OFF duty cycle**: the platform toggles between ON (moving) and OFF (stationary) every `rotation_completed`. During OFF, the platform sits at its current position (no `t` advance, no position change). Initial state is ON (the platform moves immediately on level start).
-- **Direction reversal**: every 2 rotations (180°), on the OFF → ON transition. On `rotation_completed` (signal from `RotatingLevelComponents`), the script toggles `_is_active` and, if it's now ON, flips `_direction` (multiplies by -1). The platform stays at its current position (it does NOT teleport) and resumes moving in the opposite direction. This is the only mechanism for direction change.
-- **Pause during rotation**: the script connects to `RotatingLevelComponents.rotation_started` / `.rotation_completed` (the parent). On `rotation_started` it sets `_is_rotating = true` and `_physics_process` early-returns. On `rotation_completed` it clears the flag and reverses direction. Gives the player a brief window to get on or off at rotation time.
-- **Anchor convention**: the wrapper's `position` (editor drag target) is where the platform starts. `rail_start` is `(0, 0)` by default. `rail_end` is the offset toward where the platform goes. Weight: drop at the top/left of where the platform should "fall" from, `rail_end` points down/right. Buoyant: drop at the bottom/right of where the platform should "rise" from, `rail_end` points up/left.
+**Why AnimatableBody2D over the OLD `RigidBody2D` + freeze + KINEMATIC:** AnimatableBody2D is purpose-built for kinematic moving bodies (position changes via direct `position = X` work and are synced to physics automatically). Less configuration than the freeze trick.
 
-**Scene presets:**
+**Motion logic (gravity-driven):**
 
-| Scene | `rail_start` | `rail_end` (default) | motion | Behavior |
-|---|---|---|---|---|
-| `platform_weight_y.tscn` | `(0, 0)` | `(0, 96)` | WEIGHT | Falls down |
-| `platform_weight_x.tscn` | `(0, 0)` | `(96, 0)` | WEIGHT | Falls right |
-| `platform_buoyant_y.tscn` | `(0, 0)` | `(0, -96)` | BUOYANT | Rises up |
-| `platform_buoyant_x.tscn` | `(0, 0)` | `(-96, 0)` | BUOYANT | Rises left |
+The platform projects `Player.gravity_direction` onto its rail axis each tick:
 
-To get a different length, override `rail_end` in the inspector (round to grid multiples for alignment). For diagonal rails, set both `rail_start` and `rail_end` to any two points.
+- Parallel (|dot| > 0.5) → platform moves. `motion_type = WEIGHT`: motion in gravity direction. `motion_type = BUOYANT`: motion opposite (sign flipped). Direction reverses when gravity rotates 180° (every 2 ticks for a given platform).
+- Perpendicular (|dot| < 0.5) → platform stays still.
 
-- **Designer-tunable `@export`s**: `motion: MotionType` (enum: WEIGHT / BUOYANT, set by the scene preset), `motion_speed: float = 60.0` (px/s, constant), `rail_start: Vector2 = (0, 0)` (local frame, the anchor), `rail_end: Vector2 = (0, 96)` (local frame, the other end), `starting_position: float = 0.0` (0..1 along the rail at level start; clamped). Visual: `Sprite2D.texture` (set in editor per instance). Collision: `CollisionShape2D.shape.size` (set in editor per instance — 32×32 or 32×64).
-- **Editor experience**: drop the scene into the level under `RotatingLevelComponents` (so it rotates with the world). Drag the wrapper to position the anchor; the editor's built-in 32×32 grid snap (Configure Snap via the magnet icon) snaps the position automatically — no script needed. Override `rail_end` in the inspector to set the rail length. For the 32×64 variant: edit the `Sprite2D` texture and `CollisionShape2D` shape size on that instance. No scene duplication needed.
-- **No `@tool` rail preview.** The previous editor-time gizmo lines were dropped because `@tool` scripts have been a recurring source of editor bugs (`global_transform` failures in the SubViewport, `queue_redraw()` plumbing, etc.). Run the scene to see the motion. If you want a permanent visual indicator at design time, drop a `Line2D` as a sibling of the `RigidBody2D` in the editor.
-- **Rotation just works**: the platform is a child of `RotatingLevelComponents`. When the parent rotates, the platform's world position rotates via the SceneTree transform hierarchy — the same trick the walls, flag, and tilemap use. Motion is in local frame, so the rail's world-frame direction tracks the rotation automatically.
-- **Reset on level reload**: `_ready()` resets `t = starting_position` (clamped) and the `RigidBody2D`'s position to `rail_start.lerp(rail_end, t)`. Death flow (`get_tree().reload_current_scene()`) automatically calls `_ready()` on the new instance, so the platform returns to its starting position.
+This naturally gives "every two ticks" motion — gravity rotates 90° per tick and alternates between parallel and perpendicular to a given rail axis, so the platform is active on every other tick. No explicit "every 2 ticks" reversal logic; it falls out of the gravity projection.
+
+At endpoints, `t` clamps (no ping-pong). The platform waits for the next active tick to reverse direction. Tune `motion_speed` and `rail_length` per level so the active period is long enough to be a puzzle, not so long it never reaches an endpoint between ticks.
+
+**Listener pattern:** platform listens to `Player.gravity_changed` signal (not `ClockUI.countdown_zero` directly). The Player emits `gravity_changed(new_direction)` after rotating gravity; platforms compute their motion direction from the new gravity. Same sibling-lookup pattern (`get_parent().get_node_or_null("Player")`) as before, but decouples from the tick stream.
+
+**@export tunables (on wrapper):**
+
+- `motion_type: MotionType` (enum: WEIGHT / BUOYANT, default WEIGHT)
+- `axis: Axis` (enum: X / Y, default Y) — X = horizontal rail (along +x), Y = vertical rail (along +y, i.e., downward in Godot screen coords)
+- `rail_length_units: int` (default 3, range 1–16) — multiples of 32px (snaps to grid by design)
+- `starting_position: float` (default 0.0, range 0..1 slider)
+- `motion_speed: float` (default 60.0, px/s)
+
+Setters on `axis`, `rail_length_units`, and `starting_position` call `_update_rail_preview()` + `_update_position()` so inspector changes show up live in the 2D editor.
+
+**Editor experience:** drop the scene into Main directly (no `RotatingLevelComponents` wrapper to live under — that wrapper doesn't exist anymore). Drag the wrapper for the anchor; override `rail_end` for the other endpoint. For 32×64 variants: edit the `Sprite2D` texture and `CollisionShape2D` shape size on that instance. No scene duplication needed.
+
+**Editor-visible rail preview:** `Line2D` sibling of `AnimatableBody2D`, points updated by setters, light yellow (width 2, alpha 0.8). The script uses `@tool` so setters fire and trigger viewport redraws in the editor; `Engine.is_editor_hint()` gates the runtime-only code (signal connection, `_physics_process` lerp).
+
+**Reset on level reload:** `_ready()` resets `t = starting_position` (clamped) and the `AnimatableBody2D`'s `position` to `rail_direction * (rail_length * t)`. Death flow (`get_tree().reload_current_scene()`) automatically calls `_ready()` on the new instance, so the platform returns to its starting position.
 
 ### Main Menu + Level Select
 
@@ -127,7 +149,7 @@ To get a different length, override `rail_end` in the inspector (round to grid m
 
 ### Level Template (Godot Inherited Scenes)
 
-- `scenes/level_template.tscn` is the parent scene. It contains the full level architecture: `Level` (Node2D + `level.gd` orchestrator script), `RotatingLevelComponents` (Node2D + `rotating_level_components.gd` rotation script), `TileMapLayer` (empty, ready to paint — child of `RotatingLevelComponents`), `Flag` (child of `RotatingLevelComponents`), `Player`, `ClockUI`, `LevelCompleteUI`.
+- `scenes/level_template.tscn` is the parent scene. It contains the full level architecture: `Level` (Node2D + `level.gd` orchestrator script), `TileMapLayer` (empty, ready to paint — child of `Main`), `Flag` (child of `Main`), `Player`, `ClockUI`, `LevelCompleteUI`.
 - Each level (`L1.tscn`, `L2.tscn`, `L3.tscn`) is created via **File → New Inherited Scene from `level_template.tscn`**. Editing the inherited scene only touches level-specific bits: tile placements, Flag position, Player spawn, ClockUI's `STARTING_SECONDS`.
 - **Why inherited scenes vs. copy-paste:** changes to the template (e.g., adding the death system later) propagate to all levels automatically. No risk of forgetting to update L2 when L1 gets a new feature. For 3 levels it's marginal benefit, but it pays off fast as we iterate.
 
@@ -142,31 +164,45 @@ To get a different length, override `rail_end` in the inspector (round to grid m
 ## MVP (Minimum Viable Product)
 
 Skeleton (shipped 2026-07-23):
+
 - [x] Clock UI (CanvasLayer + Label, top center, 10s countdown, `@export var STARTING_SECONDS`, pause/resume for the win flow)
 - [x] Player blob (CharacterBody2D, placeholder Polygon2D visual, left/right + jump + gravity, in "player" group)
-- [x] `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node)
+- [x] ~~`RotatingLevelComponents` rotation~~ — *removed in Phase 1 (commit `e93eb10`); replaced by gravity/camera/input rotation on the player frame*
 - [x] `flag.tscn` (Area2D + Polygon2D visual + `player_won` signal, `body_entered` filtered via `is_in_group("player")`)
-- [x] `level.gd` orchestrator (catches `Flag.player_won` → pause clock → await `ui_accept` → `change_scene_to_file(next_level_path)`)
-- [x] `scenes/level_template.tscn` (parent scene: Main + `RotatingLevelComponents` + TileMapLayer + Flag + Player + ClockUI — what L1/L2/L3 inherit from)
+- [x] `level.gd` orchestrator (win flow → `LevelCompleteUI.show_win_screen()` → `await continue_pressed` → `change_scene_to_file(next_level_path)`; death flow → `get_tree().reload_current_scene()` on `Player.died`)
+- [x] `scenes/level_template.tscn` (parent scene; `scenes/main.tscn` is a pass-through)
 - [x] `scenes/main.tscn` is a thin pass-through to the template
 
 Skeleton follow-ups:
 
 - [ ] Swap Polygon2D player visual for AnimatedSprite2D when art lands
 
-Systems:
+Phase 2/3/4 (gravity/camera/input, 2026-07-25):
+
+- [x] **Gravity rotation.** `Player.gravity_direction` rotates 90° CW on each `countdown_zero`. Applied to gravity, jump, down-boost, slope-slide, `up_direction`. (`ecc07f6` + `09fd3cc`)
+- [x] **Camera rotation.** `Camera2D` child of Player, tweens to `gravity_direction.angle() - PI/2` over `camera_rotation_duration` (default 0.25s, inspector-tunable). (`e909f73`)
+- [x] **Camera fixes.** `Camera2D.ignore_rotation = false` + `make_current()` so the tween actually drives the view; shortest-arc delta so the camera doesn't spin 270° on the third tick. (`9dd3329`)
+- [x] **Gravity-relative input.** `right_direction := gravity_direction.rotated(-PI/2)`; lateral velocity projected onto right. "Press right" = right from the player's perspective. (`11a46fa`)
+
+Systems (unchanged from skeleton follow-ups):
+
 - [x] `flag.tscn` (Area2D + visual + `player_won` signal)
 - [x] `level.gd` orchestrator (win flow → `LevelCompleteUI.show_win_screen()` → `await continue_pressed` → `change_scene_to_file(next_level_path)`; death flow → `get_tree().reload_current_scene()` on `Player.died`)
 - [x] `scenes/level_template.tscn` (parent scene; `scenes/main.tscn` is a pass-through)
-- [x] `level_complete_ui.tscn` (CanvasLayer + dark overlay + CenterContainer/VBox with "Level Complete!" title + "Press [Space] to continue" prompt; `show_win_screen()` fades in 0.3s, emits `continue_pressed` on ui_accept)
+- [x] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [x] `game_complete_ui.tscn` (end-game screen with "Game Complete!" title + "Back to Main Menu" button; shown when L3 wins since there's no next level)
-- [x] `pause_menu.tscn` (ESC-toggled pause menu with Resume / Restart / Back to Main Menu; uses `get_tree().paused` to freeze the game)
+- [x] `pause_menu.tscn` (ESC-toggled pause menu with Resume / Restart / Back to Main Menu; uses `get_tree().paused = true` to freeze the game)
 - [x] `settings.tscn` (Master / Music / SFX volume sliders wired to AudioServer; persistence still pending)
 - [x] `main_menu.tscn` (styled Start / Settings / Level Select buttons; no fade transition yet — `change_scene_to_file` is instant)
 - [x] `level_select.tscn` (3-button picker: L1 / L2 / L3 + Back; completion state via ProgressTracker autoload; in-memory only, resets per launch)
-- [ ] **Moving platforms** (V3, "fake it") — Four scene presets (`platform_weight_y.tscn`, `platform_weight_x.tscn`, `platform_buoyant_y.tscn`, `platform_buoyant_x.tscn`) share one script (`scripts/platform.gd`). Motion is fully scripted — no physics forces, no rotation-frame math. `t` lerps between `rail_start` and `rail_end` at constant speed; clamps at endpoints (no bounce, no loop); direction reverses every 2 rotations (180°): toggles ON/OFF on each `rotation_completed`, flips `_direction` on the OFF → ON transition. Pauses during rotation so the player can get on/off. `RigidBody2D` + freeze + KINEMATIC is the collision carrier. Replaces the prior physics-based impl (`platform.gd`, `platform.tscn`, `fake_platform.gd`, `fake_platform.tscn`, `balloon.tscn`, `balloon_platform.tscn`, `weight_platform.tscn`).
+
+Moving platforms v2 (gravity-driven, 2026-07-25):
+
+- [x] **`scenes/platform.tscn`** + **`scripts/platform.gd`** — AnimatableBody2D kinematic carrier, scripted lerp + gravity-projection motion. Inspector: `motion_type`, `axis`, `rail_length_units` (32px units), `starting_position` (0..1 slider), `motion_speed`. `Line2D` sibling for editor-visible rail preview. (`405cc1d`)
+- [x] **Editor reactivity.** Setters use `get_node_or_null` (not `@onready`); script uses `@tool` + `Engine.is_editor_hint()` gates so rail preview and starting position update live in the editor. (`2932d97` + `e52bb04`)
 
 Levels (placeholder tilemaps until Jason picks a tileset):
+
 - [ ] L1 playable end-to-end (via inherited scene from template)
 - [ ] L2 playable end-to-end
 - [ ] L3 playable end-to-end
@@ -181,7 +217,7 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 
 ## Risks
 
-- **Input feel after rotation.** World-relative input is intentional (pairs with rotate-the-world), but pressing "right" after a 90° rotation may not be the direction the player wants relative to the new ground. *Mitigation:* ship as-is and learn from playtesting. If the input feels unusable, add `GravityDirection` remapping as a follow-up.
+- **Platform rhythm tuning.** With gravity rotating every 10s and platforms alternating active/inactive, each active period is up to 10s. Tune `motion_speed` and `rail_length` per level so the active period is long enough to be a puzzle. *Mitigation:* ship L1 with default values, playtest, adjust.
 - **Tilemap dependency.** Level design can't start until tilemaps are picked. *Mitigation:* pick tileset early; build the level template with placeholder tiles in the meantime.
 - **Polish overhead on menus.** "Don't skip polish" could eat time. *Mitigation:* polish the menu/select as a single design pass once they're functional, not iteratively per-feature.
 - **Scope creep via hazards.** Death system is meant for spikes + pits; temptation to add moving hazards, projectiles, etc. *Mitigation:* stick to static spike tiles for the jam; defer anything else.
@@ -199,6 +235,8 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 - [x] **Jason:** add a death polygon to a spike tile in the TileSet, then paint at least one spike in L1 so the flow is testable end-to-end (confirmed by Jason 2026-07-24: "I put the spike in the level earlier for testing and it works fine")
 - [x] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [x] `level_select.tscn` (L1/L2/L3 list with completion state)
+- [x] Gravity rotation + camera rotation + gravity-relative input (Phase 2/3/4)
+- [x] Moving platforms v2 (gravity-driven motion, AnimatableBody2D + Line2D rail preview)
 - [ ] Audio (SFX for tick, win, die, rotate)
 - [ ] Visual polish on rotation (camera shake? quick zoom? particles?)
 - [ ] AnimatedSprite2D swap when player art lands
@@ -211,10 +249,9 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 
 #### Features and Mechanics
 
+- [ ] **Pause during gravity change** — so the platform doesn't keep moving during the camera tween. Currently motion continues uninterrupted; Jason said "may add later" (2026-07-25).
 - [ ] **Visible square for level design** — debug overlay showing the play area boundary, toggleable in the inspector. Useful for placing tiles precisely during L1–L3 painting.
-
-- [ ] **Pause countdown clock while rotation is happening** — so the player doesn't lose time during the rotation animation. Currently the clock continues ticking during the tween.
-- [ ] **Game over / retry UI** — when the player dies, what shows? Currently `level.gd` just resets silently. A brief "you died" / "spikes!" overlay for ~0.5s before the reset would make death feel intentional rather than a glitch.
+- [ ] **Platform motion during inactive ticks** — carry-over momentum, or similar, to make the platform feel less "binary". Jason said "may add later" (2026-07-25).
 
 #### Art / Design
 
@@ -250,4 +287,5 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 - [ ] Player move speed, run/air accel, jump velocity, ground deceleration (`player.gd` exports: RUN_SPEED, RUN_ACCEL, AIR_ACCEL, JUMP_VELOCITY, GRAVITY, GROUND_DECEL)
 - [ ] Down-boost magnitude for slope momentum (`player.gd:DOWN_BOOST` — currently 1500, ~1.5x GRAVITY)
 - [ ] Friction values per surface (TileSet custom data — set after spritesheet is settled)
-- [ ] Rotation timer and speed (`RotatingLevelComponents.rotation_speed` + `ClockUI.STARTING_SECONDS`)
+- [ ] Camera rotation duration (`camera_rotation_duration` — default 0.25s)
+- [ ] Platform `motion_speed` and `rail_length_units` defaults — currently 60 px/s and 3 (96px). Tune per level for puzzle rhythm.
