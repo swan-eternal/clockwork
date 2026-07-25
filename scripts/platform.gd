@@ -1,44 +1,60 @@
+@tool
 extends Node2D
 ##
 ## Clockwork moving platform — "fake it" motion (V3).
 ##
 ## The platform moves at constant speed along a rail defined by
-## `rail_start` (where t=0 sits, the editor anchor) and `rail_end`
-## (where t=1 sits). The RigidBody2D child is a kinematic collision
-## carrier so the player can ride it; the motion itself is fully
-## scripted — no physics forces, no rotation-frame math.
+## `rail_direction` (set by the scene preset) and `rail_length` (in
+## 32-pixel units, set in the inspector). The anchor is the wrapper's
+## origin (0, 0); the rail end is `rail_direction * rail_length * 32`.
+## The RigidBody2D child is a kinematic collision carrier so the
+## player can ride it; the motion itself is fully scripted — no
+## physics forces, no rotation-frame math.
 ##
 ## ON/OFF duty cycle: the platform toggles between ON (moving) and
-## OFF (stationary) every `rotation_completed`. During OFF, the
-## platform sits at its current position (no `t` advance, no position
-## change). On the OFF → ON transition (every 2 rotations / 180°), the
-## platform reverses direction. The platform also pauses during the
-## rotation tween (regardless of ON/OFF state), so the player has time
-## to get on or off.
+## OFF (stationary) every `rotation_completed`. On the OFF → ON
+## transition (every 2 rotations / 180°), the platform reverses
+## direction. The platform also pauses during the rotation tween
+## (regardless of ON/OFF state), so the player has time to get on
+## or off.
+##
+## Editor preview: with `@tool`, the rail is drawn as a light-blue line
+## in the 2D editor (from the anchor to the rail end). Only visible
+## in the editor — not at runtime.
 ##
 
-# Motion type. Set by the scene preset (WEIGHT falls from the anchor
-# toward rail_end; BUOYANT rises from rail_end toward the anchor).
+# Motion type. Set by the scene preset (internal, not shown in
+# inspector — Weight and Buoyant have separate scenes).
 enum MotionType { WEIGHT, BUOYANT }
 
-## Motion type: WEIGHT (falls) or BUOYANT (rises). Set per-scene.
-@export var motion: MotionType = MotionType.WEIGHT
+# --- Internal state (set by scene presets, not shown in inspector) ---
+
+## Motion type. Set by the scene preset.
+@export_storage var motion: MotionType = MotionType.WEIGHT
+
+## Rail direction in the wrapper's local frame. Set by the scene preset:
+## (0, 1) for Y-axis (down), (1, 0) for X-axis (right), etc.
+@export_storage var rail_direction: Vector2 = Vector2(0, 1)
+
+# --- Designer-tunable @exports (shown in inspector) ---
 
 ## Constant speed in pixels per second. Tune per-platform in the inspector.
 @export var motion_speed: float = 60.0
 
-## Local-frame position where t=0 sits. Defaults to (0, 0) — the wrapper's
-## origin (the editor drag target). Override for non-axis-aligned rails.
-@export var rail_start: Vector2 = Vector2(0, 0)
+## Rail length in 32-pixel units. 1 = 32px, 2 = 64px, 3 = 96px, etc.
+## The rail end is `rail_direction * rail_length * 32` in the wrapper's
+## local frame. Setter clamps to at least 1 and triggers a redraw so
+## the editor preview line updates.
+@export var rail_length: int = 3:
+	set(value):
+		rail_length = maxi(1, value)
+		queue_redraw()
 
-## Local-frame position where t=1 sits. The default depends on the scene
-## preset (see the README's Scene Presets table). Override in the inspector
-## to adjust the rail length or change the rail direction.
-@export var rail_end: Vector2 = Vector2(0, 96)
-
-## Initial position along the rail at level start, 0..1 (clamped). 0 = rail_start
-## (the anchor); 1 = rail_end; 0.5 = mid-rail. Defaults to 0.
+## Initial position along the rail at level start, 0..1 (clamped). 0 = the
+## anchor (wrapper's origin); 1 = the rail end; 0.5 = mid-rail.
 @export var starting_position: float = 0.0
+
+# --- Runtime state ---
 
 # The kinematic collision carrier. Configured in _ready() (freeze +
 # KINEMATIC). Its local position is set every frame by the motion logic.
@@ -49,7 +65,7 @@ enum MotionType { WEIGHT, BUOYANT }
 var _t: float = 0.0
 
 # Direction of motion along the rail. +1 = toward rail_end (forward);
-# -1 = toward rail_start (backward). Flipped on rotation_completed.
+# -1 = toward rail_start (backward). Flipped on the OFF → ON transition.
 var _direction: float = 1.0
 
 # True between rotation_started and rotation_completed. While true,
@@ -57,30 +73,42 @@ var _direction: float = 1.0
 # the rotation tween.
 var _is_rotating: bool = false
 
-# ON/OFF duty cycle. Toggled every rotation_completed. ON = moving
-# (motion logic runs); OFF = stationary (motion logic skipped). The
-# platform reverses direction on the OFF → ON transition, so the
-# direction-reversal cycle is 2 rotations (180°).
+# ON/OFF state. ON = moving (motion logic runs); OFF = stationary
+# (motion logic skipped). Toggled every rotation_completed.
 var _is_active: bool = true
+
+# --- Constants ---
+
+# Tile size in pixels. The rail length is measured in units of this size.
+const _GRID_SIZE: float = 32.0
+
+# Editor rail preview color (light blue, semi-transparent).
+const _RAIL_COLOR := Color(0.5, 0.7, 1.0, 0.8)
 
 
 func _ready() -> void:
+	# In editor, just ensure the rail preview is drawn and return.
+	# Don't configure the RigidBody2D or wire up signals — the editor
+	# doesn't need them, and accessing them in the editor can cause
+	# SubViewport issues.
+	if Engine.is_editor_hint():
+		queue_redraw()
+		return
+
 	# Configure the RigidBody2D as a kinematic collision carrier. We
 	# manually set its position every frame; the player rides it via
 	# Godot's standard collision resolution.
 	_rigid_body.freeze = true
 	_rigid_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 
-	# Initialize t clamped to [0, 1], direction forward, and ON state.
-	# Set the RigidBody2D's position immediately so the platform
-	# doesn't visibly snap from origin to its actual start in the first
-	# frame. Reset on death (reload_current_scene) is automatic —
-	# _ready() runs again and the platform returns to its starting
+	# Initialize state. Reset on death (reload_current_scene) is automatic
+	# — _ready() runs again and the platform returns to its starting
 	# position and ON state.
-	_t = clamp(starting_position, 0.0, 1.0)
+	_t = clampf(starting_position, 0.0, 1.0)
 	_direction = 1.0
 	_is_active = true
-	_rigid_body.position = rail_start.lerp(rail_end, _t)
+	var rail_end := _compute_rail_end()
+	_rigid_body.position = rail_end * _t
 
 	# Wire up to the parent's rotation signals. The platform must be
 	# a child of RotatingLevelComponents (or any node that emits
@@ -94,6 +122,11 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Don't run in editor — the editor doesn't need the motion logic,
+	# and running it can cause issues with the SubViewport.
+	if Engine.is_editor_hint():
+		return
+
 	# Pause during the rotation tween.
 	if _is_rotating:
 		return
@@ -105,24 +138,25 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Zero-length rail — nothing to do. Avoids division by zero.
-	var length := rail_start.distance_to(rail_end)
+	var rail_end := _compute_rail_end()
+	var length := rail_end.length()
 	if length <= 0.0:
 		return
 
 	# Advance t at constant speed in the current direction. The
-	# direction is reversed on rotation_completed (see below).
+	# direction is reversed on the OFF → ON transition (see below).
 	_t += _direction * (motion_speed / length) * delta
 
 	# Clamp at the endpoints. No bounce, no loop — the platform waits
 	# at the rail end until the next rotation reverses its direction.
-	_t = clamp(_t, 0.0, 1.0)
+	_t = clampf(_t, 0.0, 1.0)
 
 	# Apply the position to the kinematic body. The RigidBody2D's
 	# position is in the wrapper's local frame, so when the parent
 	# (RotatingLevelComponents) rotates, the platform's world
 	# position rotates automatically via the SceneTree transform
 	# hierarchy. The motion is in local frame.
-	_rigid_body.position = rail_start.lerp(rail_end, _t)
+	_rigid_body.position = rail_end * _t
 
 
 # Called when the level rotation tween starts. Freezes the platform
@@ -142,3 +176,21 @@ func _on_rotation_completed() -> void:
 	_is_active = not _is_active
 	if _is_active:
 		_direction *= -1.0
+
+
+# Computes the rail end position from `rail_direction` and `rail_length`.
+# The anchor is always the wrapper's origin (0, 0).
+func _compute_rail_end() -> Vector2:
+	return rail_direction * float(rail_length) * _GRID_SIZE
+
+
+# Draws the rail as a light-blue line in the editor. This is an editor
+# preview only — it doesn't appear at runtime.
+func _draw() -> void:
+	if not Engine.is_editor_hint():
+		return
+
+	var rail_end := _compute_rail_end()
+	draw_line(Vector2.ZERO, rail_end, _RAIL_COLOR, 2.0)
+	draw_circle(Vector2.ZERO, 4.0, _RAIL_COLOR)
+	draw_circle(rail_end, 4.0, _RAIL_COLOR)
