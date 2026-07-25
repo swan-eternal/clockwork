@@ -8,13 +8,13 @@ extends Node2D
 ## carrier so the player can ride it; the motion itself is fully
 ## scripted — no physics forces, no rotation-frame math.
 ##
-## Direction reversal is triggered by the level rotation, not by the
-## endpoints. On `rotation_completed` (signal from the parent
-## RotatingLevelComponents), the script flips `_direction` (multiplies
-## by -1), which reverses the direction of motion. The platform stays
-## at its current position (it does NOT teleport) and resumes moving
-## in the opposite direction. The platform also pauses during the
-## rotation tween so the player can get on or off.
+## ON/OFF duty cycle: the platform toggles between ON (moving) and
+## OFF (stationary) every `rotation_completed`. During OFF, the
+## platform sits at its current position (no `t` advance, no position
+## change). On the OFF → ON transition (every 2 rotations / 180°), the
+## platform reverses direction. The platform also pauses during the
+## rotation tween (regardless of ON/OFF state), so the player has time
+## to get on or off.
 ##
 
 # Motion type. Set by the scene preset (WEIGHT falls from the anchor
@@ -57,6 +57,12 @@ var _direction: float = 1.0
 # the rotation tween.
 var _is_rotating: bool = false
 
+# ON/OFF duty cycle. Toggled every rotation_completed. ON = moving
+# (motion logic runs); OFF = stationary (motion logic skipped). The
+# platform reverses direction on the OFF → ON transition, so the
+# direction-reversal cycle is 2 rotations (180°).
+var _is_active: bool = true
+
 
 func _ready() -> void:
 	# Configure the RigidBody2D as a kinematic collision carrier. We
@@ -65,11 +71,15 @@ func _ready() -> void:
 	_rigid_body.freeze = true
 	_rigid_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 
-	# Initialize t clamped to [0, 1] and direction forward. Set the
-	# RigidBody2D's position immediately so the platform doesn't
-	# visibly snap from origin to its actual start in the first frame.
+	# Initialize t clamped to [0, 1], direction forward, and ON state.
+	# Set the RigidBody2D's position immediately so the platform
+	# doesn't visibly snap from origin to its actual start in the first
+	# frame. Reset on death (reload_current_scene) is automatic —
+	# _ready() runs again and the platform returns to its starting
+	# position and ON state.
 	_t = clamp(starting_position, 0.0, 1.0)
 	_direction = 1.0
+	_is_active = true
 	_rigid_body.position = rail_start.lerp(rail_end, _t)
 
 	# Wire up to the parent's rotation signals. The platform must be
@@ -86,6 +96,12 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	# Pause during the rotation tween.
 	if _is_rotating:
+		return
+
+	# Stationary during OFF times. The platform toggles ON/OFF every
+	# rotation, so it sits still for half the cycle (between direction
+	# reversals).
+	if not _is_active:
 		return
 
 	# Zero-length rail — nothing to do. Avoids division by zero.
@@ -116,9 +132,13 @@ func _on_rotation_started() -> void:
 
 
 # Called when the level rotation tween completes. Clears the freeze
-# flag and flips `_direction` (multiplies by -1), which reverses the
-# direction of motion. The platform stays at its current position
-# (it does NOT teleport) and resumes moving in the opposite direction.
+# flag, toggles the ON/OFF state, and — on the OFF → ON transition —
+# flips `_direction` (multiplies by -1) to reverse the direction of
+# motion. The platform stays at its current position (it does NOT
+# teleport) and resumes moving in the opposite direction every 2
+# rotations (180°).
 func _on_rotation_completed() -> void:
 	_is_rotating = false
-	_direction *= -1.0
+	_is_active = not _is_active
+	if _is_active:
+		_direction *= -1.0
