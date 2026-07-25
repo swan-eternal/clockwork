@@ -3,7 +3,6 @@
 [ext_resource type="PackedScene" uid="uid://dk8e20drr8swy" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/clock_ui.tscn" id="2_clock"]
 [ext_resource type="TileSet" uid="uid://6ybxnwbci41c" path="res://assets/sprites/tiles/basetileset.tres" id="3_770am"]
-[ext_resource type="Script" uid="uid://b8wl6gq4uva2g" path="res://scripts/rotating_level_components.gd" id="3_rlc"]
 [ext_resource type="PackedScene" path="res://scenes/flag.tscn" id="4_flag"]
 [ext_resource type="Script" uid="uid://b8px15fmkadhi" path="res://scripts/level.gd" id="5_level"]
 [ext_resource type="PackedScene" path="res://scenes/level_complete_ui.tscn" id="6_lcui"]
@@ -13,17 +12,13 @@
 [node name="Main" type="Node2D" unique_id=2143881974]
 script = ExtResource("5_level")
 
-[node name="RotatingLevelComponents" type="Node2D" parent="." unique_id=545839711]
-position = Vector2(576, 324)
-script = ExtResource("3_rlc")
-
-[node name="TileMapLayer" type="TileMapLayer" parent="RotatingLevelComponents" unique_id=1274424758]
-position = Vector2(-288, -288)
+[node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=1274424758]
+position = Vector2(288, 36)
 tile_map_data = PackedByteArray("AAAIAAgAAAACAAYAAAAIAAcAAAACAAYAAAAIAAYAAAACAAYAAAAIAAUAAAACAAYAAAAIAAQAAAACAAYAAAAIAAMAAAACAAYAAAAIAAIAAAACAAYAAAAIAAEAAAACAAYAAAAIAAAAAAACAAYAAAAIAP//AAACAAYAAAAIAAkAAAACAAYAAAAIAAoAAAACAAYAAAAIAAsAAAACAAYAAAAIAAwAAAACAAYAAAAIAA0AAAACAAYAAAAIAA4AAAACAAYAAAAIAA8AAAACAAYAAAAIABAAAAACAAYAAAAIABEAAAACAAYAAAAIABIAAAACAAYAAAAHABIAAAACAAYAAAAGABIAAAACAAYAAAAFABIAAAACAAYAAAAEABIAAAACAAYAAAADABIAAAACAAYAAAACABIAAAACAAYAAAAHAAkAAAACAAYAAAAGAAkAAAACAAYAAAAFAAkAAAACAAYAAAAEAAkAAAACAAYAAAADAAkAAAACAAYAAAACAAkAAAACAAYAAAABAAkAAAACAAYAAAAAAAkAAAACAAYAAAD//wkAAAACAAYAAAAJAAkAAAACAAYAAAAKAAkAAAACAAYAAAALAAkAAAACAAYAAAAMAAkAAAACAAYAAAANAAkAAAACAAYAAAAOAAkAAAACAAYAAAAPAAkAAAACAAYAAAAQAAkAAAACAAYAAAARAAkAAAACAAYAAAASAAkAAAACAAYAAAD//wgAAAACAAYAAAD//wcAAAACAAYAAAD//wYAAAACAAYAAAD//wUAAAACAAYAAAD//wQAAAACAAYAAAD//wMAAAACAAYAAAD//wIAAAACAAYAAAD//wEAAAACAAYAAAD//wAAAAACAAYAAAD/////AAACAAYAAAAAAP//AAACAAYAAAABAP//AAACAAYAAAACAP//AAACAAYAAAADAP//AAACAAYAAAAEAP//AAACAAYAAAAFAP//AAACAAYAAAAGAP//AAACAAYAAAAHAP//AAACAAYAAAD//woAAAACAAYAAAD//wsAAAACAAYAAAD//wwAAAACAAYAAAD//w0AAAACAAYAAAD//w4AAAACAAYAAAD//w8AAAACAAYAAAD//xAAAAACAAYAAAD//xEAAAACAAYAAAD//xIAAAACAAYAAAAAABIAAAACAAYAAAABABIAAAACAAYAAAAJAP//AAACAAYAAAAKAP//AAACAAYAAAALAP//AAACAAYAAAAMAP//AAACAAYAAAANAP//AAACAAYAAAAOAP//AAACAAYAAAAPAP//AAACAAYAAAAQAP//AAACAAYAAAARAP//AAACAAYAAAA=")
 tile_set = ExtResource("3_770am")
 
-[node name="Flag" parent="RotatingLevelComponents" unique_id=905225718 instance=ExtResource("4_flag")]
-position = Vector2(200, 250)
+[node name="Flag" parent="." unique_id=905225718 instance=ExtResource("4_flag")]
+position = Vector2(776, 574)
 
 [node name="Player" parent="." unique_id=1932304678 instance=ExtResource("1_player")]
 position = Vector2(400, 324)

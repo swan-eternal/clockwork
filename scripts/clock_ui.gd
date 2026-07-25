@@ -34,16 +34,6 @@ func _ready() -> void:
 	# Reset the timer to starting value when the scene loads.
 	_remaining = STARTING_SECONDS
 	_update_label()
-	# Pause the countdown while the world is rotating, so the player
-	# doesn't lose time during the rotation animation. The rotation
-	# wrapper is a sibling of this node under Main, so look it up
-	# via the parent.
-	var rotating := get_parent().get_node_or_null("RotatingLevelComponents")
-	if rotating:
-		if rotating.has_signal("rotation_started"):
-			rotating.rotation_started.connect(_on_rotation_started)
-		if rotating.has_signal("rotation_completed"):
-			rotating.rotation_completed.connect(_on_rotation_completed)
 
 func _process(delta: float) -> void:
 	# Frozen during win flow (and any future pause states). Rotation
@@ -85,12 +75,3 @@ func won() -> void:
 	paused = true
 	_won = true
 
-func _on_rotation_started() -> void:
-	paused = true
-
-func _on_rotation_completed() -> void:
-	# Don't un-pause if the level was won during the rotation — the
-	# clock should stay paused for the rest of the win flow.
-	if _won:
-		return
-	paused = false

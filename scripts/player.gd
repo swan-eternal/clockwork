@@ -189,10 +189,6 @@ func _physics_process(delta: float) -> void:
 	# anything after it reads the post-collision velocity.
 	move_and_slide()
 
-	# DEBUG: per-frame collision tracking (remove after diagnosis).
-	print("player.global=", global_position, " is_on_floor=", is_on_floor(),
-		" vel=", velocity)
-
 	# Debug output: print state to console every debug_poll_interval
 	# seconds. Toggle off via debug_output = false in the inspector.
 	if debug_output:

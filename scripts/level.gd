@@ -21,7 +21,7 @@ extends Node2D
 ## doesn't feel like a long pause.
 @export var death_overlay_duration: float = 0.5
 
-@onready var _flag: Area2D = $RotatingLevelComponents/Flag
+@onready var _flag: Area2D = $Flag
 @onready var _clock: CanvasLayer = $ClockUI
 @onready var _player: CharacterBody2D = $Player
 @onready var _level_complete_ui: CanvasLayer = $LevelCompleteUI
