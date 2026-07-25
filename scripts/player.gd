@@ -143,7 +143,17 @@ func _ready() -> void:
 # just works without needing to set anything else.
 func _create_camera() -> Camera2D:
 	var camera := Camera2D.new()
+	# ignore_rotation defaults to true which in some Godot 4 builds
+	# effectively pins the camera's effective rotation to 0 when the
+	# parent isn't rotating -- the tween sets _camera.rotation but
+	# the visual stays still. Set false so our tween actually drives
+	# the view rotation.
+	camera.ignore_rotation = false
 	add_child(camera)
+	# Make explicit so this is always the current camera, even if
+	# another Camera2D enters the tree first (e.g., from a future
+	# scene loaded on top).
+	camera.make_current()
 	return camera
 
 func _physics_process(delta: float) -> void:
@@ -391,15 +401,32 @@ func _die() -> void:
 # only matches our setup when gravity is straight down. And tweens the
 # camera rotation to the new "down" direction over
 # camera_rotation_duration seconds (not instant — a quick pan reads
-# better than a snap).
+# better than a snap). The tween uses shortest-arc delta so each tick
+# rotates exactly PI/2 regardless of the accumulated angle.
 func _rotate_gravity_cw() -> void:
 	gravity_direction = gravity_direction.rotated(-PI / 2.0)
 	up_direction = -gravity_direction
 	# Camera rotation: gravity_direction.angle() - PI/2 so the camera's
 	# local "up" points in the anti-gravity direction (Vector2.UP when
-	# gravity is straight down). Kill any in-flight tween first so a
-	# tick that fires mid-rotation starts from the current value.
+	# gravity is straight down). Use shortest-arc delta so each tick
+	# rotates exactly PI/2 regardless of the current accumulated angle
+	# -- without this, the third tick would target +PI/2 from a current
+	# rotation of -PI (a +3PI/2 swing) and the tween would spin the
+	# camera 270° the long way around instead of 90°. Kill any in-
+	# flight tween first so a tick that fires mid-rotation starts from
+	# the current value.
+	var target_angle := gravity_direction.angle() - PI / 2.0
+	var delta := _shortest_angle_delta(_camera.rotation, target_angle)
 	if _camera_tween:
 		_camera_tween.kill()
 	_camera_tween = create_tween()
-	_camera_tween.tween_property(_camera, "rotation", gravity_direction.angle() - PI / 2.0, camera_rotation_duration)
+	_camera_tween.tween_property(_camera, "rotation", _camera.rotation + delta, camera_rotation_duration)
+
+
+# Returns the shortest signed angular delta from `from` to `to`,
+# wrapped to [-PI, PI]. Used by _rotate_gravity_cw so the camera
+# tween always takes the shortest arc -- a 90° gravity rotation
+# should spin the camera 90°, not 270° the long way around when the
+# target angle crosses the -PI/PI boundary.
+func _shortest_angle_delta(from: float, to: float) -> float:
+	return fposmod(to - from + PI, TAU) - PI
