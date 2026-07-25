@@ -83,6 +83,12 @@ var gravity_direction: Vector2 = Vector2.DOWN
 ## Seconds between debug prints. Smaller = more frequent, more spammy.
 @export var debug_poll_interval: float = 0.5
 
+## How long the camera rotation takes to complete after each gravity
+## change. Small enough to feel responsive, large enough to be
+## readable — 0.25 is a quick pan; bump up for more dramatic
+## transitions.
+@export var camera_rotation_duration: float = 0.25
+
 # Reference to the TileMapLayer for per-tile friction lookup.
 # TileMapLayer is a sibling of Player under Main, so "../TileMapLayer"
 # is the relative path.
@@ -99,12 +105,20 @@ var gravity_direction: Vector2 = Vector2.DOWN
 @onready var _jump_sound: AudioStreamPlayer = $JumpSound
 @onready var _die_sound: AudioStreamPlayer = $DieSound
 
+# Camera created programmatically (added as a child in _create_camera).
+# Follows the player automatically as a child node. Rotates to match the
+# new "down" direction on each clock tick (see _rotate_gravity_cw).
+@onready var _camera: Camera2D = _create_camera()
+
 # Emitted when the player enters a death zone. The level orchestrator
 # listens for this and runs the death flow (flash → freeze → hide → reset).
 signal died
 
 var _jump_buffer: int = 0
 var _debug_accum: float = 0.0
+# Tracks the current camera rotation tween so a new one can kill the
+# old one if a tick fires mid-rotation.
+var _camera_tween: Tween = null
 # Death-in-progress flag. Set true when _die() starts so _physics_process
 # early-returns and input handlers ignore presses. Prevents double-fire
 # from the DeathDetector while the death animation is running.
@@ -122,6 +136,15 @@ func _ready() -> void:
 	var clock := get_parent().get_node_or_null("ClockUI")
 	if clock and clock.has_signal("countdown_zero"):
 		clock.countdown_zero.connect(_rotate_gravity_cw)
+
+# Creates the camera as a child of the player so it follows automatically.
+# Called from the @onready var initialization. The first enabled
+# Camera2D in the scene tree becomes the current camera, so this
+# just works without needing to set anything else.
+func _create_camera() -> Camera2D:
+	var camera := Camera2D.new()
+	add_child(camera)
+	return camera
 
 func _physics_process(delta: float) -> void:
 	# Death freezes the player — skip all movement/physics while dying.
@@ -350,7 +373,18 @@ func _die() -> void:
 # signal. 90° CW in Godot 2D is -PI/2 radians (rotation is CCW-positive).
 # Also updates up_direction so move_and_slide uses the correct "up" for
 # collision resolution and slope sliding — defaults to Vector2.UP which
-# only matches our setup when gravity is straight down.
+# only matches our setup when gravity is straight down. And tweens the
+# camera rotation to the new "down" direction over
+# camera_rotation_duration seconds (not instant — a quick pan reads
+# better than a snap).
 func _rotate_gravity_cw() -> void:
 	gravity_direction = gravity_direction.rotated(-PI / 2.0)
 	up_direction = -gravity_direction
+	# Camera rotation: gravity_direction.angle() - PI/2 so the camera's
+	# local "up" points in the anti-gravity direction (Vector2.UP when
+	# gravity is straight down). Kill any in-flight tween first so a
+	# tick that fires mid-rotation starts from the current value.
+	if _camera_tween:
+		_camera_tween.kill()
+	_camera_tween = create_tween()
+	_camera_tween.tween_property(_camera, "rotation", gravity_direction.angle() - PI / 2.0, camera_rotation_duration)
