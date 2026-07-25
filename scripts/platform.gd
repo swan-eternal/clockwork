@@ -20,44 +20,84 @@ extends Node2D
 ## wrapper is a child of RotatingLevelComponents, so as the parent
 ## rotates, the platform's global_rotation follows.
 ##
+## All @export vars use setters + queue_redraw() so changes in the
+## inspector show up immediately in the 2D editor. Without setters,
+## changes only apply on scene reload — which is the "fixed in place"
+## UX problem Jason called out. (Hit 2026-07-25, fixed by this rewrite.)
+##
 
 # --- Designer config ----------------------------------------------------
 
 # Motion axis in LOCAL frame. "Vertical" = rail along local Y (the
 # platform slides up/down in its local frame). "Horizontal" = rail
 # along local X (the platform slides left/right in its local frame).
-# The parent rotation rotates the rail's world-frame direction with
-# the level — no special handling needed in the script.
-@export_enum("Vertical", "Horizontal") var axis: String = "Vertical"
+@export_enum("Vertical", "Horizontal") var axis: String = "Vertical":
+	set(value):
+		axis = value
+		_recompute_rail()
+		queue_redraw()
 
 # "Weight" = falls with gravity (force = Vector2.DOWN * gravity).
 # "Balloon" = rises against gravity (force = Vector2.UP * buoyancy).
-@export_enum("Weight", "Balloon") var motion: String = "Weight"
+@export_enum("Weight", "Balloon") var motion: String = "Weight":
+	set(value):
+		motion = value
+		queue_redraw()
 
 # Length of the rail (in local px). The rail is centered at the
-# wrapper's placed position (the .tscn's `position` field).
-@export var rail_length: float = 200.0
+# wrapper's placed position. Only used when both rail_start AND
+# rail_end are Vector2.ZERO (auto-compute path).
+@export var rail_length: float = 200.0:
+	set(value):
+		rail_length = value
+		_recompute_rail()
+		queue_redraw()
 
 # Starting position along the rail. 0.0 = at rail_start, 1.0 = at
 # rail_end. Default 0.5 = rail's center (visually aligned with the
-# wrapper's position). Resets on level reload (the script re-runs
-# _ready).
-@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.5
+# wrapper's position).
+@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.5:
+	set(value):
+		starting_position = value
+		_t = value
+		_velocity = 0.0
+		if _rigid_body:
+			_rigid_body.position = lerp(_effective_rail_start, _effective_rail_end, _t)
+		queue_redraw()
 
 # Force magnitudes (px/s²). Same units for Weight and Balloon — the
-# difference is the direction (DOWN vs UP). Exported as separate
-# values so the designer can tune fall vs rise feel independently.
-@export var gravity: float = 980.0
-@export var buoyancy: float = 1500.0
+# difference is the direction (DOWN vs UP).
+@export var gravity: float = 980.0:
+	set(value):
+		gravity = value
+		queue_redraw()
+
+@export var buoyancy: float = 1500.0:
+	set(value):
+		buoyancy = value
+		queue_redraw()
 
 # Collision shape + visual size. Default (64, 16) = long flat platform.
-@export var platform_size: Vector2 = Vector2(64, 16)
+@export var platform_size: Vector2 = Vector2(64, 16):
+	set(value):
+		platform_size = value
+		_apply_platform_size()
+		queue_redraw()
 
-# Rail endpoints in LOCAL frame. Auto-computed from axis + rail_length
-# at _ready() — leaving both at Vector2.ZERO triggers the auto-compute.
-# Override for non-axis-aligned rails (e.g. a 45° diagonal).
-@export var rail_start: Vector2 = Vector2.ZERO
-@export var rail_end: Vector2 = Vector2.ZERO
+# Rail endpoints in LOCAL frame. Leave BOTH at Vector2.ZERO to
+# auto-compute from axis + rail_length. Set BOTH manually for
+# non-axis-aligned rails (e.g. a 45° diagonal).
+@export var rail_start: Vector2 = Vector2.ZERO:
+	set(value):
+		rail_start = value
+		_recompute_rail()
+		queue_redraw()
+
+@export var rail_end: Vector2 = Vector2.ZERO:
+	set(value):
+		rail_end = value
+		_recompute_rail()
+		queue_redraw()
 
 # --- Internal state -----------------------------------------------------
 
@@ -66,8 +106,16 @@ extends Node2D
 var _t: float = 0.0
 var _velocity: float = 0.0
 
-# Unit vector along the rail (local frame). Computed once in _ready().
+# Unit vector along the rail (local frame). Computed by _recompute_rail().
 var _rail_direction: Vector2 = Vector2.DOWN
+
+# Effective rail endpoints used at runtime + in the editor preview.
+# Derived from @export rail_start/rail_end + axis + rail_length. Kept
+# in private vars (not @export) so the auto-compute path doesn't
+# cascade through the @export setters — that would leave state in
+# inconsistent intermediate values while the setter chain ran.
+var _effective_rail_start: Vector2 = Vector2.ZERO
+var _effective_rail_end: Vector2 = Vector2.ZERO
 
 @onready var _rigid_body: RigidBody2D = $RigidBody2D
 @onready var _collision_shape: CollisionShape2D = $RigidBody2D/CollisionShape2D
@@ -84,24 +132,44 @@ func _ready() -> void:
 	_rigid_body.freeze = true
 	_rigid_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 
-	# Auto-compute rail endpoints if not overridden. Rail is centered
-	# at the wrapper's placed position (the .tscn's `position` field).
+	_recompute_rail()
+	_apply_platform_size()
+
+
+# Re-derive the effective rail endpoints + direction from the current
+# @export values, and snap the platform to starting_position on the
+# (possibly new) rail. Called from _ready (initial setup) and from any
+# setter that affects the rail (axis, rail_length, rail_start, rail_end).
+#
+# Auto-compute vs override: if BOTH rail_start AND rail_end are
+# Vector2.ZERO, derive endpoints from axis + rail_length. Otherwise,
+# use the explicit values — the override path for non-axis-aligned
+# rails (diagonal, curved segments, etc.).
+#
+# queue_redraw() is NOT called here — the setters that call this
+# function are responsible for queue_redraw(), so we don't double-fire.
+func _recompute_rail() -> void:
 	if rail_start == Vector2.ZERO and rail_end == Vector2.ZERO:
 		if axis == "Vertical":
-			rail_start = Vector2(0, -rail_length * 0.5)
-			rail_end = Vector2(0, rail_length * 0.5)
+			_effective_rail_start = Vector2(0, -rail_length * 0.5)
+			_effective_rail_end = Vector2(0, rail_length * 0.5)
 		else:
-			rail_start = Vector2(-rail_length * 0.5, 0)
-			rail_end = Vector2(rail_length * 0.5, 0)
-	_rail_direction = (rail_end - rail_start).normalized()
+			_effective_rail_start = Vector2(-rail_length * 0.5, 0)
+			_effective_rail_end = Vector2(rail_length * 0.5, 0)
+	else:
+		_effective_rail_start = rail_start
+		_effective_rail_end = rail_end
+	_rail_direction = (_effective_rail_end - _effective_rail_start).normalized()
 
-	# Initial state — start at the configured starting_position on the
-	# rail with zero velocity.
+	# Snap to starting position on the (possibly new) rail.
 	_t = starting_position
 	_velocity = 0.0
-	_rigid_body.position = lerp(rail_start, rail_end, _t)
+	if _rigid_body:
+		_rigid_body.position = lerp(_effective_rail_start, _effective_rail_end, _t)
 
-	# Match the collision shape and visual to platform_size.
+
+# Resize the collision shape + visual to match platform_size.
+func _apply_platform_size() -> void:
 	if _collision_shape and _collision_shape.shape is RectangleShape2D:
 		(_collision_shape.shape as RectangleShape2D).size = platform_size
 	if _platform_visual:
@@ -118,7 +186,8 @@ func _physics_process(delta: float) -> void:
 	# Skip motion in the editor — in the 2D editor's preview SubViewport,
 	# `get_parent()` resolves to a SubViewport (not the level's Node2D
 	# hierarchy), and SubViewports have no `global_transform`. We don't
-	# need physics here anyway; _ready already handles the visual setup.
+	# need physics here anyway; _ready + _recompute_rail handle the
+	# visual setup, and inspector changes trigger queue_redraw().
 	if Engine.is_editor_hint():
 		return
 
@@ -138,8 +207,7 @@ func _physics_process(delta: float) -> void:
 	# world-frame direction ends up following the rotation.
 	var local_force: Vector2 = get_parent().global_transform.affine_inverse().basis_xform(world_force)
 
-	# Project onto the rail direction (also in local frame).
-	# Result: how much of the force acts along the rail this frame.
+	# Project onto the rail direction.
 	var force_along_rail: float = local_force.dot(_rail_direction)
 
 	# Integrate. Force is acceleration (mass = 1).
@@ -154,20 +222,18 @@ func _physics_process(delta: float) -> void:
 		_t = 1.0
 		_velocity = 0.0
 
-	# Apply rail offset to the RigidBody2D's local position. The
-	# parent's rotation rotates this for free (SceneTree transform
-	# hierarchy).
-	_rigid_body.position = lerp(rail_start, rail_end, _t)
+	# Apply rail offset to the RigidBody2D's local position.
+	_rigid_body.position = lerp(_effective_rail_start, _effective_rail_end, _t)
 
 
-# Editor-only: draw a rail line + endpoint markers so the level
-# designer can see where the platform will travel. Drawn on the WRAPPER
+# Editor-only: draw a rail line + endpoint markers. Drawn on the WRAPPER
 # (not the RigidBody2D), so the preview is anchored at the rail's
 # center (the wrapper's position) regardless of where the platform is
-# currently sitting on the rail.
+# currently sitting on the rail. queue_redraw() (called from the @export
+# setters) is what makes this update live on inspector property changes.
 func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
-	draw_line(rail_start, rail_end, Color(0.5, 0.8, 1.0, 0.6), 2.0)
-	draw_circle(rail_start, 4.0, Color(0.5, 0.8, 1.0, 0.8))
-	draw_circle(rail_end, 4.0, Color(0.5, 0.8, 1.0, 0.8))
+	draw_line(_effective_rail_start, _effective_rail_end, Color(0.5, 0.8, 1.0, 0.6), 2.0)
+	draw_circle(_effective_rail_start, 4.0, Color(0.5, 0.8, 1.0, 0.8))
+	draw_circle(_effective_rail_end, 4.0, Color(0.5, 0.8, 1.0, 0.8))
