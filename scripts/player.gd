@@ -158,27 +158,42 @@ func _physics_process(delta: float) -> void:
 	# (no slip) when no query point hits a tile with friction data.
 	var friction := _get_current_friction()
 
-	# Apply horizontal velocity. Three cases:
+	# Apply horizontal velocity. Gravity-relative: "press right" always
+	# means "right from the player's perspective", which is the direction
+	# perpendicular to gravity, rotated 90° CW from gravity. With gravity
+	# straight down, right is +x. With gravity pointing right, right is
+	# -y (the player walks 'up' the wall). Etc.
+	#
+	# Three cases:
 	#   - In the air: accelerate toward RUN_SPEED at AIR_ACCEL (reduced
 	#     control so jumps feel committed and momentum is preserved).
 	#     No horizontal decel — momentum is preserved mid-flight.
 	#   - On the ground with input: accelerate toward RUN_SPEED at
 	#     RUN_ACCEL. Don't hard-cap so the player can exceed RUN_SPEED
 	#     via ramp launches and drops.
-	#   - On the ground with no input: decelerate only on flat ground.
-	#     On slopes, the slope slide + friction handle deceleration
-	#     naturally — adding horizontal decel on top would eat the
-	#     momentum the player built up on the ramp or drop.
+	#   - On the ground with no input: decelerate only on flat ground
+	#     (relative to gravity, not just world-flat). On slopes, the
+	#     slope slide + friction handle deceleration naturally.
+	var right_direction := gravity_direction.rotated(-PI / 2.0)
 	if not is_on_floor():
 		if input_dir != 0:
-			velocity.x = move_toward(velocity.x, input_dir * RUN_SPEED, AIR_ACCEL * delta)
+			var current_right_speed := velocity.dot(right_direction)
+			var target_right_speed := input_dir * RUN_SPEED
+			var new_right_speed := move_toward(current_right_speed, target_right_speed, AIR_ACCEL * delta)
+			velocity += (new_right_speed - current_right_speed) * right_direction
 	elif input_dir != 0:
-		velocity.x = move_toward(velocity.x, input_dir * RUN_SPEED, RUN_ACCEL * delta)
+		var current_right_speed := velocity.dot(right_direction)
+		var target_right_speed := input_dir * RUN_SPEED
+		var new_right_speed := move_toward(current_right_speed, target_right_speed, RUN_ACCEL * delta)
+		velocity += (new_right_speed - current_right_speed) * right_direction
 	else:
-		# Grounded with no input. Decel only on flat ground.
-		if abs(get_floor_normal().y) >= 0.999:
+		# Grounded with no input. Decel only on flat ground relative
+		# to gravity (floor_normal aligned with -gravity_direction).
+		if abs(get_floor_normal().dot(-gravity_direction)) >= 0.999:
 			var decel := GROUND_DECEL * friction
-			velocity.x = move_toward(velocity.x, 0, decel * delta)
+			var current_right_speed := velocity.dot(right_direction)
+			var new_right_speed := move_toward(current_right_speed, 0, decel * delta)
+			velocity += (new_right_speed - current_right_speed) * right_direction
 
 	# Jump with input buffering. If the player presses jump while airborne,
 	# the press is queued for up to JUMP_BUFFER_FRAMES frames so it
