@@ -93,6 +93,12 @@ var gravity_direction: Vector2 = Vector2.DOWN
 ## transitions.
 @export var camera_rotation_duration: float = 0.25
 
+## Camera zoom multiplier. Values < 1 zoom out (see more of the
+## scene), values > 1 zoom in (objects appear larger, less area
+## visible). Default (1, 1) = no zoom change. Same value applies
+## to both X and Y for an isotropic zoom.
+@export var camera_zoom: Vector2 = Vector2(1, 1)
+
 # Reference to the TileMapLayer for per-tile friction lookup.
 # TileMapLayer is a sibling of Player under Main, so "../TileMapLayer"
 # is the relative path.
@@ -159,6 +165,7 @@ func _create_camera() -> Camera2D:
 	# the visual stays still. Set false so our tween actually drives
 	# the view rotation.
 	camera.ignore_rotation = false
+	camera.zoom = camera_zoom
 	add_child(camera)
 	# Make explicit so this is always the current camera, even if
 	# another Camera2D enters the tree first (e.g., from a future
