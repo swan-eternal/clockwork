@@ -114,6 +114,12 @@ var gravity_direction: Vector2 = Vector2.DOWN
 # listens for this and runs the death flow (flash → freeze → hide → reset).
 signal died
 
+# Emitted when gravity rotates to a new direction. Listeners (e.g.,
+# moving platforms) use this to update motion state without needing
+# to track ticks separately. Player remains the source of truth for
+# its own gravity_direction.
+signal gravity_changed(new_direction: Vector2)
+
 var _jump_buffer: int = 0
 var _debug_accum: float = 0.0
 # Tracks the current camera rotation tween so a new one can kill the
@@ -406,6 +412,7 @@ func _die() -> void:
 func _rotate_gravity_cw() -> void:
 	gravity_direction = gravity_direction.rotated(-PI / 2.0)
 	up_direction = -gravity_direction
+	gravity_changed.emit(gravity_direction)
 	# Camera rotation: gravity_direction.angle() - PI/2 so the camera's
 	# local "up" points in the anti-gravity direction (Vector2.UP when
 	# gravity is straight down). Use shortest-arc delta so each tick
