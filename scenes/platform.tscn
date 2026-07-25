@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=4 uid="uid://cplat4mvtscnx"]
+
+[ext_resource type="Script" uid="uid://cplat4mvwxr8p" path="res://scripts/platform.gd" id="1_platform"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
+size = Vector2(64, 16)
+
+[node name="Platform" type="RigidBody2D"]
+freeze = true
+freeze_mode = 1
+script = ExtResource("1_platform")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="PlatformVisual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.5, 0.5, 1)
+polygon = PackedVector2Array(-32, -8, 32, -8, 32, 8, -32, 8)
