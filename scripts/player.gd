@@ -30,7 +30,11 @@ const DEATH_HOLD_TIME := 0.2
 @export var JUMP_VELOCITY := -400.0
 ## Gravitational acceleration magnitude (px/s²). Used together with
 ## gravity_direction to apply gravity in the current "down" direction.
-@export var gravity_strength := 980.0
+# Bumped from 980 to 1500 (2026-07-25) per Jason's playtest: more
+# gravity = more slide acceleration on slopes, which makes the
+# 'rolling' feel more pronounced. If tumbling emerges from
+# overspeed rather than under-anchoring, dial this back down.
+@export var gravity_strength := 1500.0
 
 ## Direction of gravity in world coordinates. Starts pointing down
 ## (Vector2.DOWN = (0, 1)). Rotates 90° CW on each clock tick.
@@ -194,14 +198,26 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		if input_dir != 0:
 			var current_right_speed := velocity.dot(right_direction)
-			var target_right_speed := input_dir * RUN_SPEED
-			var new_right_speed := move_toward(current_right_speed, target_right_speed, AIR_ACCEL * delta)
-			velocity += (new_right_speed - current_right_speed) * right_direction
+			# Don't fight momentum. If the player is already at or above
+			# RUN_SPEED in the input direction, skip input acceleration
+			# entirely so slope slides and jumps preserve their velocity.
+			# (The comment block above says "don't hard-cap" but the
+			# original code did via move_toward; this restores the
+			# intended behavior -- ramps feel like ramps because you
+			# can build speed on them and carry it off into a jump.)
+			if input_dir * current_right_speed < RUN_SPEED:
+				var target_right_speed := input_dir * RUN_SPEED
+				var new_right_speed := move_toward(current_right_speed, target_right_speed, AIR_ACCEL * delta)
+				velocity += (new_right_speed - current_right_speed) * right_direction
 	elif input_dir != 0:
 		var current_right_speed := velocity.dot(right_direction)
-		var target_right_speed := input_dir * RUN_SPEED
-		var new_right_speed := move_toward(current_right_speed, target_right_speed, RUN_ACCEL * delta)
-		velocity += (new_right_speed - current_right_speed) * right_direction
+		# Same skip-if-over-target logic as the air branch -- the
+		# player can build speed on a slope and carry it off the ramp
+		# (or use it to jump farther) without the input fighting it.
+		if input_dir * current_right_speed < RUN_SPEED:
+			var target_right_speed := input_dir * RUN_SPEED
+			var new_right_speed := move_toward(current_right_speed, target_right_speed, RUN_ACCEL * delta)
+			velocity += (new_right_speed - current_right_speed) * right_direction
 	else:
 		# Grounded with no input. Decel only on flat ground relative
 		# to gravity (floor_normal aligned with -gravity_direction).
@@ -295,7 +311,7 @@ func _get_friction_info() -> Dictionary:
 	if not _tile_map:
 		return {"friction": 1.0, "contact_cell": Vector2i(-1, -1)}
 	var query_y := global_position.y + _get_bottom_offset() + surface_query_depth
-	var best := {"friction": 1.0, "contact_cell": Vector2i(-1, -1)}
+	var best := {"friction": 0.5, "contact_cell": Vector2i(-1, -1)}
 	for offset in surface_query_x_offsets:
 		var query_point := Vector2(global_position.x + offset, query_y)
 		var local_pos := _tile_map.to_local(query_point)
