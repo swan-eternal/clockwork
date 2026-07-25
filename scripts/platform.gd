@@ -115,6 +115,13 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Skip motion in the editor — in the 2D editor's preview SubViewport,
+	# `get_parent()` resolves to a SubViewport (not the level's Node2D
+	# hierarchy), and SubViewports have no `global_transform`. We don't
+	# need physics here anyway; _ready already handles the visual setup.
+	if Engine.is_editor_hint():
+		return
+
 	# World-frame force: gravity for Weight, opposite-of-gravity for Balloon.
 	var world_force: Vector2
 	if motion == "Weight":
