@@ -27,10 +27,15 @@ extends Node2D
 @onready var _level_complete_ui: CanvasLayer = $LevelCompleteUI
 @onready var _game_complete_ui: CanvasLayer = $GameCompleteUI
 @onready var _game_over_overlay: CanvasLayer = _create_game_over_overlay()
+@onready var _fade_rect: ColorRect = _create_fade_overlay()
 
 func _ready() -> void:
 	_flag.player_won.connect(_on_player_won)
 	_player.died.connect(_on_player_died)
+	# Fade in from black on level load — pairs with the fade-out in
+	# _on_player_won before change_scene_to_file, so the old scene is
+	# already off-screen when it tears down and the new one fades in.
+	_fade_in()
 
 func _on_player_won() -> void:
 	# Pause the clock so rotation halts — the world freezes on the
@@ -53,6 +58,11 @@ func _on_player_won() -> void:
 		return
 	_level_complete_ui.show_win_screen()
 	await _level_complete_ui.continue_pressed
+	# Fade to black before swapping scenes — change_scene_to_file is
+	# otherwise instant and exposes any scene-loading hitches.
+	# _fade_out() returns when the tween finishes, so the scene swap
+	# happens while the screen is black.
+	await _fade_out()
 	get_tree().change_scene_to_file(next_level_path)
 
 func _on_player_died() -> void:
@@ -87,3 +97,42 @@ func _create_game_over_overlay() -> CanvasLayer:
 	layer.visible = false
 	add_child(layer)
 	return layer
+
+
+# Build a fullscreen black overlay on a high CanvasLayer. Used for both
+# fade-in (on level start) and fade-out (before scene change). The
+# rect starts transparent; _fade_in() / _fade_out() animate it. Lives
+# on layer 100 so it draws above the death overlay (10) and any other
+# UI layers in the level scene. mouse_filter = IGNORE so it doesn't
+# block input while invisible.
+func _create_fade_overlay() -> ColorRect:
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	var rect := ColorRect.new()
+	rect.name = "FadeRect"
+	rect.color = Color(0, 0, 0, 0)
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(rect)
+	add_child(layer)
+	return rect
+
+# Fade in from opaque black to transparent. Called in _ready so the
+# level fades in on scene load. 0.4s is enough to mask the
+# change_scene_to_file handoff without feeling slow. The rect is set
+# to opaque synchronously here so the first rendered frame after
+# _ready shows black, then the tween animates to transparent.
+func _fade_in() -> void:
+	_fade_rect.color = Color(0, 0, 0, 1)
+	var tween := create_tween()
+	tween.tween_property(_fade_rect, "color", Color(0, 0, 0, 0), 0.4)
+
+# Fade out from transparent to opaque. Used before change_scene_to_file
+# so the scene transition isn't jarring. Returns when the tween
+# finishes, so the caller can `await` it before triggering the scene
+# change. The rect is destroyed when the scene unloads; the new scene's
+# _fade_in() handles the fade-in from there.
+func _fade_out() -> void:
+	var tween := create_tween()
+	tween.tween_property(_fade_rect, "color", Color(0, 0, 0, 1), 0.4)
+	await tween.finished

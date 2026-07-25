@@ -36,6 +36,22 @@ const DEATH_HOLD_TIME := 0.2
 # overspeed rather than under-anchoring, dial this back down.
 @export var gravity_strength := 1500.0
 
+## If true, the body keeps the same horizontal speed on slopes (no
+## acceleration downhill, no deceleration uphill). Without this,
+## gravity 1500 + low-friction slopes makes the player build speed
+## quickly on downhills, and the engine briefly loses contact at
+## slope transitions (steep->flat, etc.) - the result is a visible
+## "hop" or "bounce" feel.
+## Set false for the original "rolling ball picks up speed" feel.
+@export var FLOOR_CONSTANT_SPEED: bool = true
+## How far (px) along the body's up_direction the engine will try to
+## keep the player snapped to the floor on slope transitions. Larger
+## = smoother slope continuity; default in Godot 4 is 1.0, which is
+## too tight for slopes the player can build significant speed on.
+## Combined with FLOOR_CONSTANT_SPEED this gives a smooth slide
+## rather than a bouncy one.
+@export var FLOOR_SNAP_LENGTH: float = 4.0
+
 ## Direction of gravity in world coordinates. Starts pointing down
 ## (Vector2.DOWN = (0, 1)). Rotates 90° CW on each clock tick.
 var gravity_direction: Vector2 = Vector2.DOWN
@@ -172,6 +188,16 @@ var _is_stuck_to_wall: bool = false
 var _frames_since_disloged: int = 0
 
 func _ready() -> void:
+	# Slope-feel setup: apply floor physics tunables before any motion.
+	# These are CharacterBody2D properties; setting them in code
+	# (rather than via the scene file) keeps the tunables visible as
+	# @export vars in the inspector and easy to tweak per-player if
+	# needed later. floor_constant_speed eliminates the velocity jump
+	# at slope transitions; floor_snap_length widens the snap window
+	# so the engine keeps the player attached across small slope-
+	# normal shifts mid-tick.
+	floor_constant_speed = FLOOR_CONSTANT_SPEED
+	floor_snap_length = FLOOR_SNAP_LENGTH
 	# Tag the player so damage / pickup / win-zone checks can find us
 	# without hardcoded path lookups. Same convention as the raccoon
 	# Metroidvania project — write the is_in_group check AND the

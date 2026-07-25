@@ -259,7 +259,7 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 - [ ] Settle on tilemap spritesheet
 - [ ] VFX, shaders, particle effects (TBD — low priority until core loop is solid)
 - [ ] Replace digital countdown with analog clock face
-- [ ] **Level transition visual** — fade-to-black on win and fade-in on next level. Currently `change_scene_to_file` is instant, which makes the win flow feel abrupt and exposes any scene-loading hitches.
+- [x] **Level transition visual** — `scripts/level.gd` adds a fullscreen ColorRect on CanvasLayer 100 (`_create_fade_overlay`) animated by tween. `_fade_in()` runs in `_ready()` (level fades in on load); `_fade_out()` awaits before `change_scene_to_file` (so the screen is black when the old scene tears down). 0.4s duration.
 
 #### Music
 
@@ -277,13 +277,13 @@ Forward-looking, prioritized within each category. Pick from here when in-flight
 - [x] Settings menu:
   - [x] **Audio bus setup** — `default_bus_layout.tres` declares Master / Music / SFX buses; Music + SFX both send to Master.
   - [x] Audio: master, music, SFX volume (linear 0..100 slider -> -60..0 dB)
-  - [ ] **Settings persistence** — save audio/volume/brightness/VFX to disk so they survive across game launches. ~10 lines with `ConfigFile`.
+  - [x] **Settings persistence** — `ConfigFile`-based save/load in `scripts/settings.gd` (`_save_settings` on every slider change + `_load_settings` on entry, applied via `set_value_no_signal` to avoid re-triggering save during load). Persists master/music/SFX volume + chromatic aberration intensity to `user://settings.cfg`. Already implemented; README was stale.
   - [ ] Visual: VFX intensity, brightness, etc
 - [ ] **Credits screen** — about the game / music credits / open-source asset attribution (Kenney tilesets, etc).
 
 #### Tuning
 
-- [ ] Gravity (`player.gd` — currently 980)
+- [ ] Gravity (`player.gd` — currently 1500, bumped from 980 on 2026-07-25 per Jason's slope-slide playtest)
 - [ ] Player move speed, run/air accel, jump velocity, ground deceleration (`player.gd` exports: RUN_SPEED, RUN_ACCEL, AIR_ACCEL, JUMP_VELOCITY, GRAVITY, GROUND_DECEL)
 - [ ] Down-boost magnitude for slope momentum (`player.gd:DOWN_BOOST` — currently 1500, ~1.5x GRAVITY)
 - [ ] Friction values per surface (TileSet custom data — set after spritesheet is settled)
