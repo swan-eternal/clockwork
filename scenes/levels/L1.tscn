@@ -29,7 +29,7 @@ visible = false
 visible = false
 
 [node name="Platform" parent="." index="7" unique_id=174724998 instance=ExtResource("2_sbb6c")]
-position = Vector2(585, 309)
+position = Vector2(475, 180)
 
 [node name="Platform2" parent="." index="8" unique_id=1842358216 instance=ExtResource("2_sbb6c")]
 position = Vector2(742, 308)

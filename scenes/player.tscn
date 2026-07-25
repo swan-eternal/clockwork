@@ -32,6 +32,7 @@ radius = 13.0
 
 [node name="Player" type="CharacterBody2D" unique_id=1637235894]
 script = ExtResource("1_player")
+camera_zoom = Vector2(0.75, 0.75)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1204896840]
 sprite_frames = SubResource("SpriteFrames_ewexw")
@@ -41,10 +42,10 @@ autoplay = "default"
 position = Vector2(0, 3)
 shape = SubResource("CircleShape2D_vye67")
 
-[node name="DeathDetector" type="Area2D" parent="."]
+[node name="DeathDetector" type="Area2D" parent="." unique_id=1609997192]
 collision_mask = 2
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="DeathDetector"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DeathDetector" unique_id=1785182997]
 position = Vector2(0, 3)
 shape = SubResource("CircleShape2D_vye67")
 
@@ -53,11 +54,11 @@ visible = false
 color = Color(0.3, 0.8, 0.4, 1)
 polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
 
-[node name="JumpSound" type="AudioStreamPlayer" parent="."]
+[node name="JumpSound" type="AudioStreamPlayer" parent="." unique_id=1563126239]
 stream = ExtResource("3_jumpsound")
 volume_db = 9.0
 
-[node name="DieSound" type="AudioStreamPlayer" parent="."]
+[node name="DieSound" type="AudioStreamPlayer" parent="." unique_id=770749955]
 stream = ExtResource("4_diesound")
 
 [connection signal="body_entered" from="DeathDetector" to="." method="_on_death_detector_body_entered"]
