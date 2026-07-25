@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=4 uid="uid://cplat4mvtscnx"]
+[gd_scene format=4 uid="uid://cplat4mvtscnx"]
 
 [ext_resource type="Script" uid="uid://cplat4mvwxr8p" path="res://scripts/platform.gd" id="1_platform"]
 
@@ -8,6 +8,7 @@ size = Vector2(64, 16)
 [node name="Platform" type="RigidBody2D"]
 freeze = true
 freeze_mode = 1
+lock_rotation = true
 script = ExtResource("1_platform")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
