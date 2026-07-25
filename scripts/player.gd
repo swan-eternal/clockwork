@@ -68,6 +68,14 @@ var gravity_direction: Vector2 = Vector2.DOWN
 ## Higher = more forgiving; lower = stricter timing required.
 @export var JUMP_BUFFER_FRAMES: int = 5
 
+## Number of physics frames AFTER leaving the floor that the player
+## can still jump (the "coyote time" window). 5 frames (~83ms)
+## mirrors JUMP_BUFFER_FRAMES for symmetric feel. Higher = more
+## forgiving (jumping just after walking off a ledge still works);
+## lower = stricter timing. Without this, jumping the instant you
+## walk off a ledge feels unresponsive.
+@export var COYOTE_FRAMES: int = 5
+
 ## Sample depth (px) below the player's bottom to look for the contact cell.
 ## Tune in the inspector for different player sizes or tile sizes.
 @export var surface_query_depth: float = 4.0
@@ -131,6 +139,13 @@ signal died
 signal gravity_changed(new_direction: Vector2)
 
 var _jump_buffer: int = 0
+# Frames since the player last touched the floor. Drives coyote time:
+# while _frames_since_grounded <= COYOTE_FRAMES, the player can
+# still jump even though they're airborne. Initial value (1000) is
+# large so a freshly-spawned player doesn't get coyote time on the
+# first air frame; reset to 1000 after each successful jump so
+# coyote jumps can't chain without touching ground in between.
+var _frames_since_grounded: int = 1000
 var _debug_accum: float = 0.0
 # Tracks the current camera rotation tween so a new one can kill the
 # old one if a tick fires mid-rotation.
@@ -178,6 +193,13 @@ func _physics_process(delta: float) -> void:
 	# The level orchestrator handles the reset; this is just the freeze.
 	if _is_dying:
 		return
+	# Maintain coyote-time counter: 0 while grounded, +1 per air frame.
+	# Reset to 1000 after a successful jump (below) so coyote jumps
+	# can't chain without the player touching ground in between.
+	if is_on_floor():
+		_frames_since_grounded = 0
+	else:
+		_frames_since_grounded += 1
 	# Horizontal input from left/right arrows or A/D.
 	var input_dir := Input.get_axis("ui_left", "ui_right")
 
@@ -239,7 +261,11 @@ func _physics_process(delta: float) -> void:
 	# triggers as soon as they land. Without this, players have to time
 	# the press to the exact landing frame, which feels bad.
 	if Input.is_action_just_pressed("ui_accept"):
-		if is_on_floor():
+		# Coyote time: also allow jump within COYOTE_FRAMES frames
+		# of leaving the floor. is_on_floor() is checked first so a
+		# real grounded jump takes the immediate path (and resets the
+		# counter below).
+		if is_on_floor() or _frames_since_grounded <= COYOTE_FRAMES:
 			# Jump in the current "up" direction (opposite of gravity).
 			# Keep velocity perpendicular to gravity, replace the
 			# along-gravity component with the jump speed. JUMP_VELOCITY
@@ -250,6 +276,9 @@ func _physics_process(delta: float) -> void:
 			velocity = perp_to_gravity + gravity_direction * JUMP_VELOCITY
 			_jump_sound.play()
 			_jump_buffer = 0
+			# Consume coyote time after a successful jump so the player
+			# must touch the floor again before another coyote jump.
+			_frames_since_grounded = 1000
 		else:
 			_jump_buffer = JUMP_BUFFER_FRAMES
 	elif _jump_buffer > 0 and is_on_floor():
