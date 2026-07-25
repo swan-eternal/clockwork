@@ -76,6 +76,13 @@ var gravity_direction: Vector2 = Vector2.DOWN
 ## walk off a ledge feels unresponsive.
 @export var COYOTE_FRAMES: int = 5
 
+## Number of physics frames AFTER dislodging from a sticky wall during
+## which the player cannot re-engage a sticky tile. Prevents pinball-
+## chain wall-jumps where the player can immediately re-stick on the
+## same tile. 4 frames (~67ms at 60fps) gives a short breath between
+## jumps so the dislodge feels deliberate.
+@export var STICKY_REFRACTION_FRAMES: int = 4
+
 ## Sample depth (px) below the player's bottom to look for the contact cell.
 ## Tune in the inspector for different player sizes or tile sizes.
 @export var surface_query_depth: float = 4.0
@@ -154,6 +161,15 @@ var _camera_tween: Tween = null
 # early-returns and input handlers ignore presses. Prevents double-fire
 # from the DeathDetector while the death animation is running.
 var _is_dying: bool = false
+# True when the player is currently clinging to a sticky tile. While
+# true, horizontal input + gravity + down-boost are all skipped --
+# the player is fully locked to the wall. Cleared by jump (via the
+# dislodge code in the jump branch of _physics_process).
+var _is_stuck_to_wall: bool = false
+# Counts down from STICKY_REFRACTION_FRAMES after a dislodge. While > 0,
+# _is_stuck_to_wall cannot be re-engaged, so the jump arc can clear
+# the sticky tile before another sticky attachment is allowed.
+var _frames_since_disloged: int = 0
 
 func _ready() -> void:
 	# Tag the player so damage / pickup / win-zone checks can find us
@@ -193,6 +209,21 @@ func _physics_process(delta: float) -> void:
 	# The level orchestrator handles the reset; this is just the freeze.
 	if _is_dying:
 		return
+	# Decrement sticky refraction cooldown. While > 0, the player cannot
+	# re-engage sticky (prevents pinball-chain wall-jumps where the
+	# player can immediately re-stick on the same tile after dislodging).
+	if _frames_since_disloged > 0:
+		_frames_since_disloged -= 1
+	# Detect sticky: if the wall we're currently touching has a tile
+	# marked sticky=true, set _is_stuck_to_wall. Uses the previous
+	# frame's wall collision (move_and_slide updated is_on_wall last
+	# frame -- this 1-frame delay is imperceptible at 60fps). Skipped
+	# during the refraction cooldown so a dislodge arc can clear the
+	# wall before another attachment is allowed.
+	if is_on_wall() and _frames_since_disloged == 0:
+		_is_stuck_to_wall = _is_wall_tile_sticky()
+	else:
+		_is_stuck_to_wall = false
 	# Maintain coyote-time counter: 0 while grounded, +1 per air frame.
 	# Reset to 1000 after a successful jump (below) so coyote jumps
 	# can't chain without the player touching ground in between.
@@ -223,38 +254,41 @@ func _physics_process(delta: float) -> void:
 	#   - On the ground with no input: decelerate only on flat ground
 	#     (relative to gravity, not just world-flat). On slopes, the
 	#     slope slide + friction handle deceleration naturally.
-	var right_direction := gravity_direction.rotated(-PI / 2.0)
-	if not is_on_floor():
-		if input_dir != 0:
+	# When stuck to a wall, skip all horizontal motion -- the player is
+	# fully locked. Jump is the only way to dislodge (see below).
+	if not _is_stuck_to_wall:
+		var right_direction := gravity_direction.rotated(-PI / 2.0)
+		if not is_on_floor():
+			if input_dir != 0:
+				var current_right_speed := velocity.dot(right_direction)
+				# Don't fight momentum. If the player is already at or above
+				# RUN_SPEED in the input direction, skip input acceleration
+				# entirely so slope slides and jumps preserve their velocity.
+				# (The comment block above says "don't hard-cap" but the
+				# original code did via move_toward; this restores the
+				# intended behavior -- ramps feel like ramps because you
+				# can build speed on them and carry it off into a jump.)
+				if input_dir * current_right_speed < RUN_SPEED:
+					var target_right_speed := input_dir * RUN_SPEED
+					var new_right_speed := move_toward(current_right_speed, target_right_speed, AIR_ACCEL * delta)
+					velocity += (new_right_speed - current_right_speed) * right_direction
+		elif input_dir != 0:
 			var current_right_speed := velocity.dot(right_direction)
-			# Don't fight momentum. If the player is already at or above
-			# RUN_SPEED in the input direction, skip input acceleration
-			# entirely so slope slides and jumps preserve their velocity.
-			# (The comment block above says "don't hard-cap" but the
-			# original code did via move_toward; this restores the
-			# intended behavior -- ramps feel like ramps because you
-			# can build speed on them and carry it off into a jump.)
+			# Same skip-if-over-target logic as the air branch -- the
+			# player can build speed on a slope and carry it off the ramp
+			# (or use it to jump farther) without the input fighting it.
 			if input_dir * current_right_speed < RUN_SPEED:
 				var target_right_speed := input_dir * RUN_SPEED
-				var new_right_speed := move_toward(current_right_speed, target_right_speed, AIR_ACCEL * delta)
+				var new_right_speed := move_toward(current_right_speed, target_right_speed, RUN_ACCEL * delta)
 				velocity += (new_right_speed - current_right_speed) * right_direction
-	elif input_dir != 0:
-		var current_right_speed := velocity.dot(right_direction)
-		# Same skip-if-over-target logic as the air branch -- the
-		# player can build speed on a slope and carry it off the ramp
-		# (or use it to jump farther) without the input fighting it.
-		if input_dir * current_right_speed < RUN_SPEED:
-			var target_right_speed := input_dir * RUN_SPEED
-			var new_right_speed := move_toward(current_right_speed, target_right_speed, RUN_ACCEL * delta)
-			velocity += (new_right_speed - current_right_speed) * right_direction
-	else:
-		# Grounded with no input. Decel only on flat ground relative
+		else:
+			# Grounded with no input. Decel only on flat ground relative
 		# to gravity (floor_normal aligned with -gravity_direction).
-		if abs(get_floor_normal().dot(-gravity_direction)) >= 0.999:
-			var decel := GROUND_DECEL * friction
-			var current_right_speed := velocity.dot(right_direction)
-			var new_right_speed := move_toward(current_right_speed, 0, decel * delta)
-			velocity += (new_right_speed - current_right_speed) * right_direction
+			if abs(get_floor_normal().dot(-gravity_direction)) >= 0.999:
+				var decel := GROUND_DECEL * friction
+				var current_right_speed := velocity.dot(right_direction)
+				var new_right_speed := move_toward(current_right_speed, 0, decel * delta)
+				velocity += (new_right_speed - current_right_speed) * right_direction
 
 	# Jump with input buffering. If the player presses jump while airborne,
 	# the press is queued for up to JUMP_BUFFER_FRAMES frames so it
@@ -265,7 +299,10 @@ func _physics_process(delta: float) -> void:
 		# of leaving the floor. is_on_floor() is checked first so a
 		# real grounded jump takes the immediate path (and resets the
 		# counter below).
-		if is_on_floor() or _frames_since_grounded <= COYOTE_FRAMES:
+		# Allow jump if on floor, within coyote time, OR stuck to a wall.
+		# is_on_floor() is checked first so a real grounded jump takes
+		# the immediate path (and resets the counter below).
+		if is_on_floor() or _frames_since_grounded <= COYOTE_FRAMES or _is_stuck_to_wall:
 			# Jump in the current "up" direction (opposite of gravity).
 			# Keep velocity perpendicular to gravity, replace the
 			# along-gravity component with the jump speed. JUMP_VELOCITY
@@ -279,6 +316,12 @@ func _physics_process(delta: float) -> void:
 			# Consume coyote time after a successful jump so the player
 			# must touch the floor again before another coyote jump.
 			_frames_since_grounded = 1000
+			# If we jumped off a sticky wall, disengage sticky and start
+			# the refraction cooldown so the jump arc can clear the tile
+			# before another attachment is allowed.
+			if _is_stuck_to_wall:
+				_is_stuck_to_wall = false
+				_frames_since_disloged = STICKY_REFRACTION_FRAMES
 		else:
 			_jump_buffer = JUMP_BUFFER_FRAMES
 	elif _jump_buffer > 0 and is_on_floor():
@@ -300,14 +343,20 @@ func _physics_process(delta: float) -> void:
 	# push through high-friction slopes; in midair it doubles as a fast-fall.
 	# Placed BEFORE vertical physics so the boost combines with gravity /
 	# slope slide in the same frame — one velocity vector goes into move_and_slide.
-	if Input.is_action_pressed("ui_down"):
+	# Skipped when stuck to a wall -- the player can't push the wall
+	# with "down" while clinging.
+	if not _is_stuck_to_wall and Input.is_action_pressed("ui_down"):
 		# Down-boost in the current gravity direction. On slopes this
 		# augments the gravity-projected slide; in midair it doubles
 		# as a fast-fall.
 		velocity += gravity_direction * DOWN_BOOST * delta
 
 	# Vertical physics: gravity when airborne, slope slide when grounded.
-	if not is_on_floor():
+	# Skipped when stuck to a wall -- the player defies gravity while
+	# clinging. The sticky attachment holds them in place.
+	if _is_stuck_to_wall:
+		pass  # No gravity, no slope slide -- player locked to wall.
+	elif not is_on_floor():
 		velocity += gravity_direction * gravity_strength * delta
 	else:
 		# On a slope, project gravity onto the slope plane and apply as
@@ -329,6 +378,32 @@ func _physics_process(delta: float) -> void:
 		if _debug_accum >= debug_poll_interval:
 			_debug_accum = 0.0
 			_print_debug_state()
+
+# Returns true if the player is currently touching a sticky tile on a
+# wall. Looks up the wall-side tile via the TileMap, checks its
+# "sticky" custom data field (set per-tile in the editor). Returns
+# false if not touching any wall, or if the wall tile doesn't have
+# sticky=true.
+#
+# Uses get_wall_normal() to find the wall direction: the tile is in
+# the direction opposite wall_normal, at a sample distance slightly
+# outside the player's collision radius (14px for the default 13px
+# circle).
+func _is_wall_tile_sticky() -> bool:
+	if not _tile_map or not is_on_wall():
+		return false
+	var wall_normal := get_wall_normal()
+	if wall_normal == Vector2.ZERO:
+		return false
+	# The wall tile is at global_position + (-wall_normal) * sample_distance.
+	var sample := global_position + (-wall_normal) * 14.0
+	var local_pos := _tile_map.to_local(sample)
+	var cell := _tile_map.local_to_map(local_pos)
+	var tile_data := _tile_map.get_cell_tile_data(cell)
+	if tile_data and tile_data.has_custom_data("sticky"):
+		return bool(tile_data.get_custom_data("sticky"))
+	return false
+
 
 func _get_current_friction() -> float:
 	return _get_friction_info()["friction"]
