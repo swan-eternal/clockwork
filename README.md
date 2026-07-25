@@ -6,7 +6,7 @@
 
 Skeleton shipped 2026-07-23 (commits `532a05a` → `55b2066` → `90995a8` → `f11b24e` → `dfcad97` → `ce685fb`): player (CharacterBody2D + collision + box visual, in "player" group), clock UI (CanvasLayer + Label counting 10→0), `RotatingLevelComponents` rotation (90° per clock tick, animated via Tween, speed tunable via `@export var rotation_speed` on the node). **Refactor + system layers landed same day** (`8b23903` → `aec3d3d` → `b021b65`): wrapper renamed `Walls` → `RotatingLevelComponents` (rotating-by-default — anything that's "part of the level" is a child of this node, so it spins with the world); the 4 StaticBody2D walls were replaced with an empty `TileMapLayer` (Jason paints wall tiles + level geometry in the tilemap); `flag.tscn` + `level.gd` orchestrator added (touch-to-win → clock pause → wait for input → `change_scene_to_file(next_level_path)`); `scenes/level_template.tscn` built as the parent scene L1/L2/L3 inherit from; `scenes/main.tscn` is now a thin pass-through to the template. **Next layer:** tilemap setup (Jason assigns a TileSet in the editor and paints), main menu, level select. **Death system + LevelCompleteUI landed 2026-07-24** (`0780a0c` → `d0b3ad4`): tilemap-based spike death zones (`physics_layer_1` + DeathDetector Area2D on the player + `Player.died` signal + level reset), `level_complete_ui.tscn` (fade-in win screen with "Press [Space] to continue" prompt, replaces the `print()` placeholder in `level.gd`).
 
-**Moving platforms rewritten 2026-07-24** (clean approach): One `scenes/platform.tscn` + one `scripts/platform.gd`. Four "types" combine two @export enums — `axis` (Vertical/Horizontal) and `motion` (Weight/Balloon). `RigidBody2D` + `freeze = true` + `freeze_mode = FREEZE_MODE_KINEMATIC` (kinematic, position-set, pushes other bodies). Each physics step, world-force (gravity for Weight, opposite for Balloon) is transformed into the parent's local frame, projected onto the local rail direction, and integrated. The platform is a child of `RotatingLevelComponents`, so the parent's rotation rotates the platform visually via the SceneTree transform hierarchy — no joint, no sync_to_physics, no freeze-mode gymnastics. **Emergent behavior**: a horizontal rail (in world frame, after a 90° rotation) has no gravity component along the rail — the platform stops moving until the next rotation. "Vertical" platforms move at 0°/180°; "Horizontal" platforms move at 90°/270°. Falls out of the math, no special-case tracking. Deleted the previous GrooveJoint2D-based implementation (`moving_platform.gd`, `balloon.gd`, `rail_joint.gd`, `rail_marker.gd`, `balloon.tscn`, `balloon_platform.tscn`, `weight_platform.tscn`).
+**Moving platforms rewritten 2026-07-25** (V3, "fake it" approach): four scene presets (`platform_weight_y.tscn`, `platform_weight_x.tscn`, `platform_buoyant_y.tscn`, `platform_buoyant_x.tscn`) share one script (`scripts/platform.gd`). The motion is fully scripted — no physics forces, no rotation-frame math. The platform lerps between `rail_start` and `rail_end` at constant speed; `t` is clamped at the endpoints (no bounce, no loop); direction reversal is triggered by the level rotation (via `_direction *= -1` on `rotation_completed`), not by the endpoints. The platform pauses during rotation so the player can get on or off. `RigidBody2D` + `freeze = true` + `freeze_mode = FREEZE_MODE_KINEMATIC` is the kinematic collision carrier (player rides it) — the only reason there's a physics body. Deleted the prior physics-based implementation (`platform.gd`, `platform.tscn`, `fake_platform.gd`, `fake_platform.tscn`, `balloon.tscn`, `balloon_platform.tscn`, `weight_platform.tscn`).
 
 ## Concept
 
@@ -80,15 +80,42 @@ Four cross-level systems, designed up-front so they slot into the level template
 
 ### Moving Platforms
 
-- **One scene, one script**: `scenes/platform.tscn` + `scripts/platform.gd`. The four "types" are two @export enums in combination — `axis` (Vertical/Horizontal) sets the rail direction in local frame, `motion` (Weight/Balloon) sets the driving force.
-- **Kinematic body**: `RigidBody2D` + `freeze = true` + `freeze_mode = FREEZE_MODE_KINEMATIC`. Ignores gravity, moves on position-set, pushes other bodies (player rides it). No joint, no sync_to_physics — AnimatableBody2D has documented issues with parent movement (Godot issues #58269, #76685, #98970).
-- **Local-frame motion**: each physics step, world-force (gravity for Weight, opposite for Balloon) is transformed into the parent's local frame via `affine_inverse().basis_xform()`, projected onto the rail direction, and integrated. Platform's `position` (local) is `lerp(rail_start, rail_end, t)`.
-- **Rotation "just works"**: the platform is a child of `RotatingLevelComponents`. The parent's rotation rotates the platform visually via the SceneTree transform hierarchy — the same trick the walls, flag, and tilemap use. Motion is in local frame, so the rail's world-frame direction tracks the rotation automatically.
-- **Emergent behavior**: a horizontal rail (in world frame, after a 90° rotation) has no gravity component along the rail — the platform stops moving until the next rotation. "Vertical" platforms move at 0°/180°; "Horizontal" platforms move at 90°/270°. Falls out of the math, no special-case tracking.
-- **Designer-tunable**: `axis`, `motion`, `rail_length`, `starting_position` (0..1), `gravity` / `buoyancy` (px/s²), `platform_size` (collision + visual size), `rail_start` / `rail_end` (local-frame endpoints — auto-computed from axis + length; override for non-axis-aligned rails).
-- **Visual**: gray `Polygon2D` placeholder. Designer can add balloon / weight visual flair as separate children in the editor without coupling to the motion logic.
-- **Reset on level reload**: `_t` and `_velocity` reset in `_ready()`, so `get_tree().reload_current_scene()` (death flow) restores the platform to its starting position.
-- **`@tool` gizmo**: in the editor, draws the rail as a light-blue line with two endpoint dots so the platform's travel range is visible. f you want a non-axis-aligned rail (e.g., a 45° diagonal), set `rail_start` / `rail_end` explicitly and the script uses them as-is.
+Four scene presets (Weight × {Y, X} and Buoyant × {Y, X}) share one script (`scripts/platform.gd`). The motion is fully scripted — no physics forces, no rotation-frame math. The platform lerps between two local-frame endpoints at constant speed. The `RigidBody2D` is a kinematic collision carrier so the player can ride it.
+
+**Architecture** (Node2D wrapper + RigidBody2D child):
+
+```
+Platform (Node2D + script)
+└── RigidBody2D (freeze=true, KINEMATIC)
+    ├── CollisionShape2D (RectangleShape2D, sized in editor)
+    └── Sprite2D (texture set in editor)
+```
+
+The wrapper Node2D exists for editor ergonomics — the `CollisionShape2D` hijacks the drag handle if it's directly on the `RigidBody2D`, and the inspector on a bare `RigidBody2D` is empty. The script lives on the wrapper, the `RigidBody2D` is configured in `_ready()` (freeze + KINEMATIC), and the collision / sprite size is set on the children per instance.
+
+- **Why scripted motion**: the previous implementation transformed gravity into the parent's local frame via `basis_xform(force)` and projected it onto the rail. That was brittle — speed went to zero when the rail was perpendicular to world-down, frame-rate dependent, and the editor's SubViewport had no `global_transform`. Constant-speed scripted motion sidesteps all of that.
+- **Motion logic**: `t` is the normalized position along the rail (0..1), where `t = 0` is at `rail_start` and `t = 1` is at `rail_end`. Each `_physics_process` step: `t += (motion_speed / rail_length) * delta` (clamped to `[0, 1]`). The `RigidBody2D`'s `position` is set to `rail_start.lerp(rail_end, t)` every frame. The lerp is exact — no accumulated drift.
+- **Endpoint behavior**: clamp, no bounce, no loop. The platform reaches the endpoint and waits for the next rotation.
+- **Direction reversal**: triggered by the level rotation, not by the endpoints. On `rotation_completed` (signal from `RotatingLevelComponents`), the script flips `_direction` (multiplies by -1). The platform stays at its current position (it does NOT teleport) and resumes moving in the opposite direction. This is the only mechanism for direction change.
+- **Pause during rotation**: the script connects to `RotatingLevelComponents.rotation_started` / `.rotation_completed` (the parent). On `rotation_started` it sets `_is_rotating = true` and `_physics_process` early-returns. On `rotation_completed` it clears the flag and reverses direction. Gives the player a brief window to get on or off at rotation time.
+- **Anchor convention**: the wrapper's `position` (editor drag target) is where the platform starts. `rail_start` is `(0, 0)` by default. `rail_end` is the offset toward where the platform goes. Weight: drop at the top/left of where the platform should "fall" from, `rail_end` points down/right. Buoyant: drop at the bottom/right of where the platform should "rise" from, `rail_end` points up/left.
+
+**Scene presets:**
+
+| Scene | `rail_start` | `rail_end` (default) | motion | Behavior |
+|---|---|---|---|---|
+| `platform_weight_y.tscn` | `(0, 0)` | `(0, 96)` | WEIGHT | Falls down |
+| `platform_weight_x.tscn` | `(0, 0)` | `(96, 0)` | WEIGHT | Falls right |
+| `platform_buoyant_y.tscn` | `(0, 0)` | `(0, -96)` | BUOYANT | Rises up |
+| `platform_buoyant_x.tscn` | `(0, 0)` | `(-96, 0)` | BUOYANT | Rises left |
+
+To get a different length, override `rail_end` in the inspector (round to grid multiples for alignment). For diagonal rails, set both `rail_start` and `rail_end` to any two points.
+
+- **Designer-tunable `@export`s**: `motion: MotionType` (enum: WEIGHT / BUOYANT, set by the scene preset), `motion_speed: float = 60.0` (px/s, constant), `rail_start: Vector2 = (0, 0)` (local frame, the anchor), `rail_end: Vector2 = (0, 96)` (local frame, the other end), `starting_position: float = 0.0` (0..1 along the rail at level start; clamped). Visual: `Sprite2D.texture` (set in editor per instance). Collision: `CollisionShape2D.shape.size` (set in editor per instance — 32×32 or 32×64).
+- **Editor experience**: drop the scene into the level under `RotatingLevelComponents` (so it rotates with the world). Drag the wrapper to position the anchor; the editor's built-in 32×32 grid snap (Configure Snap via the magnet icon) snaps the position automatically — no script needed. Override `rail_end` in the inspector to set the rail length. For the 32×64 variant: edit the `Sprite2D` texture and `CollisionShape2D` shape size on that instance. No scene duplication needed.
+- **No `@tool` rail preview.** The previous editor-time gizmo lines were dropped because `@tool` scripts have been a recurring source of editor bugs (`global_transform` failures in the SubViewport, `queue_redraw()` plumbing, etc.). Run the scene to see the motion. If you want a permanent visual indicator at design time, drop a `Line2D` as a sibling of the `RigidBody2D` in the editor.
+- **Rotation just works**: the platform is a child of `RotatingLevelComponents`. When the parent rotates, the platform's world position rotates via the SceneTree transform hierarchy — the same trick the walls, flag, and tilemap use. Motion is in local frame, so the rail's world-frame direction tracks the rotation automatically.
+- **Reset on level reload**: `_ready()` resets `t = starting_position` (clamped) and the `RigidBody2D`'s position to `rail_start.lerp(rail_end, t)`. Death flow (`get_tree().reload_current_scene()`) automatically calls `_ready()` on the new instance, so the platform returns to its starting position.
 
 ### Main Menu + Level Select
 
@@ -136,7 +163,7 @@ Systems:
 - [x] `settings.tscn` (Master / Music / SFX volume sliders wired to AudioServer; persistence still pending)
 - [x] `main_menu.tscn` (styled Start / Settings / Level Select buttons; no fade transition yet — `change_scene_to_file` is instant)
 - [x] `level_select.tscn` (3-button picker: L1 / L2 / L3 + Back; completion state via ProgressTracker autoload; in-memory only, resets per launch)
-- [x] **Moving platforms** — One `scenes/platform.tscn` + one `scripts/platform.gd`. Four "types" combine `axis` (Vertical/Horizontal) + `motion` (Weight/Balloon) @export enums. `RigidBody2D` + `freeze = true` + `freeze_mode = FREEZE_MODE_KINEMATIC` (kinematic, position-set, pushes other bodies). Local-frame motion: world-force transformed into parent's local frame, projected onto rail direction. The platform is a child of `RotatingLevelComponents`, so the parent's rotation rotates the platform visually via the SceneTree hierarchy — no joint, no sync_to_physics, no freeze-mode gymnastics. Designer-tunable `axis`, `motion`, `rail_length`, `starting_position`, `gravity` / `buoyancy`, `rail_start` / `rail_end`, `platform_size` via the Inspector.
+- [ ] **Moving platforms** (V3, "fake it") — Four scene presets (`platform_weight_y.tscn`, `platform_weight_x.tscn`, `platform_buoyant_y.tscn`, `platform_buoyant_x.tscn`) share one script (`scripts/platform.gd`). Motion is fully scripted — no physics forces, no rotation-frame math. `t` lerps between `rail_start` and `rail_end` at constant speed; clamps at endpoints (no bounce, no loop); direction reverses on rotation (`_direction *= -1` on `rotation_completed`). Pauses during rotation so the player can get on/off. `RigidBody2D` + freeze + KINEMATIC is the collision carrier. Replaces the prior physics-based impl (`platform.gd`, `platform.tscn`, `fake_platform.gd`, `fake_platform.tscn`, `balloon.tscn`, `balloon_platform.tscn`, `weight_platform.tscn`).
 
 Levels (placeholder tilemaps until Jason picks a tileset):
 - [ ] L1 playable end-to-end (via inherited scene from template)

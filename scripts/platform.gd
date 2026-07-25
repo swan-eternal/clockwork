@@ -1,246 +1,124 @@
-@tool
 extends Node2D
 ##
-## Clockwork moving platform. Slides along a rail in LOCAL frame under
-## gravity (Weight) or against gravity (Balloon). The wrapper is a child
-## of RotatingLevelComponents, so its local frame rotates with the
-## level — the rail's world-frame direction follows the rotation
-## automatically, with no joint, no sync_to_physics trick, no
-## freeze-mode gymnastics.
+## Clockwork moving platform — "fake it" motion (V3).
 ##
-## The four "types" are two @export enums in combination:
-##   - axis:   "Vertical" (rail along local Y) or "Horizontal" (rail along local X)
-##   - motion: "Weight" (falls with gravity) or "Balloon" (rises with buoyancy)
+## The platform moves at constant speed along a rail defined by
+## `rail_start` (where t=0 sits, the editor anchor) and `rail_end`
+## (where t=1 sits). The RigidBody2D child is a kinematic collision
+## carrier so the player can ride it; the motion itself is fully
+## scripted — no physics forces, no rotation-frame math.
 ##
-## The RigidBody2D child is a kinematic body (freeze = true,
-## freeze_mode = FREEZE_MODE_KINEMATIC). When frozen, it doesn't
-## respond to gravity or forces, but it can be moved by setting
-## position, and it pushes other bodies (like the player) out of the way.
-## The rotation is handled by the SceneTree transform hierarchy — the
-## wrapper is a child of RotatingLevelComponents, so as the parent
-## rotates, the platform's global_rotation follows.
-##
-## All @export vars use setters + queue_redraw() so changes in the
-## inspector show up immediately in the 2D editor. Without setters,
-## changes only apply on scene reload — which is the "fixed in place"
-## UX problem Jason called out. (Hit 2026-07-25, fixed by this rewrite.)
+## Direction reversal is triggered by the level rotation, not by the
+## endpoints. On `rotation_completed` (signal from the parent
+## RotatingLevelComponents), the script flips `_direction` (multiplies
+## by -1), which reverses the direction of motion. The platform stays
+## at its current position (it does NOT teleport) and resumes moving
+## in the opposite direction. The platform also pauses during the
+## rotation tween so the player can get on or off.
 ##
 
-# --- Designer config ----------------------------------------------------
+# Motion type. Set by the scene preset (WEIGHT falls from the anchor
+# toward rail_end; BUOYANT rises from rail_end toward the anchor).
+enum MotionType { WEIGHT, BUOYANT }
 
-# Motion axis in LOCAL frame. "Vertical" = rail along local Y (the
-# platform slides up/down in its local frame). "Horizontal" = rail
-# along local X (the platform slides left/right in its local frame).
-@export_enum("Vertical", "Horizontal") var axis: String = "Vertical":
-	set(value):
-		axis = value
-		_recompute_rail()
-		queue_redraw()
+## Motion type: WEIGHT (falls) or BUOYANT (rises). Set per-scene.
+@export var motion: MotionType = MotionType.WEIGHT
 
-# "Weight" = falls with gravity (force = Vector2.DOWN * gravity).
-# "Balloon" = rises against gravity (force = Vector2.UP * buoyancy).
-@export_enum("Weight", "Balloon") var motion: String = "Weight":
-	set(value):
-		motion = value
-		queue_redraw()
+## Constant speed in pixels per second. Tune per-platform in the inspector.
+@export var motion_speed: float = 60.0
 
-# Length of the rail (in local px). The rail is centered at the
-# wrapper's placed position. Only used when both rail_start AND
-# rail_end are Vector2.ZERO (auto-compute path).
-@export var rail_length: float = 200.0:
-	set(value):
-		rail_length = value
-		_recompute_rail()
-		queue_redraw()
+## Local-frame position where t=0 sits. Defaults to (0, 0) — the wrapper's
+## origin (the editor drag target). Override for non-axis-aligned rails.
+@export var rail_start: Vector2 = Vector2(0, 0)
 
-# Starting position along the rail. 0.0 = at rail_start, 1.0 = at
-# rail_end. Default 0.5 = rail's center (visually aligned with the
-# wrapper's position).
-@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.5:
-	set(value):
-		starting_position = value
-		_t = value
-		_velocity = 0.0
-		if _rigid_body:
-			_rigid_body.position = lerp(_effective_rail_start, _effective_rail_end, _t)
-		queue_redraw()
+## Local-frame position where t=1 sits. The default depends on the scene
+## preset (see the README's Scene Presets table). Override in the inspector
+## to adjust the rail length or change the rail direction.
+@export var rail_end: Vector2 = Vector2(0, 96)
 
-# Force magnitudes (px/s²). Same units for Weight and Balloon — the
-# difference is the direction (DOWN vs UP).
-@export var gravity: float = 980.0:
-	set(value):
-		gravity = value
-		queue_redraw()
+## Initial position along the rail at level start, 0..1 (clamped). 0 = rail_start
+## (the anchor); 1 = rail_end; 0.5 = mid-rail. Defaults to 0.
+@export var starting_position: float = 0.0
 
-@export var buoyancy: float = 1500.0:
-	set(value):
-		buoyancy = value
-		queue_redraw()
-
-# Collision shape + visual size. Default (64, 16) = long flat platform.
-@export var platform_size: Vector2 = Vector2(64, 16):
-	set(value):
-		platform_size = value
-		_apply_platform_size()
-		queue_redraw()
-
-# Rail endpoints in LOCAL frame. Leave BOTH at Vector2.ZERO to
-# auto-compute from axis + rail_length. Set BOTH manually for
-# non-axis-aligned rails (e.g. a 45° diagonal).
-@export var rail_start: Vector2 = Vector2.ZERO:
-	set(value):
-		rail_start = value
-		_recompute_rail()
-		queue_redraw()
-
-@export var rail_end: Vector2 = Vector2.ZERO:
-	set(value):
-		rail_end = value
-		_recompute_rail()
-		queue_redraw()
-
-# --- Internal state -----------------------------------------------------
-
-# Per-frame state. _t is the position along the rail (0..1); _velocity
-# is the rate of change in `_t` units per second.
-var _t: float = 0.0
-var _velocity: float = 0.0
-
-# Unit vector along the rail (local frame). Computed by _recompute_rail().
-var _rail_direction: Vector2 = Vector2.DOWN
-
-# Effective rail endpoints used at runtime + in the editor preview.
-# Derived from @export rail_start/rail_end + axis + rail_length. Kept
-# in private vars (not @export) so the auto-compute path doesn't
-# cascade through the @export setters — that would leave state in
-# inconsistent intermediate values while the setter chain ran.
-var _effective_rail_start: Vector2 = Vector2.ZERO
-var _effective_rail_end: Vector2 = Vector2.ZERO
-
+# The kinematic collision carrier. Configured in _ready() (freeze +
+# KINEMATIC). Its local position is set every frame by the motion logic.
 @onready var _rigid_body: RigidBody2D = $RigidBody2D
-@onready var _collision_shape: CollisionShape2D = $RigidBody2D/CollisionShape2D
-@onready var _platform_visual: Polygon2D = $RigidBody2D/PlatformVisual
+
+# Normalized position along the rail (0..1). Direction is given by
+# `_direction` (+1 = toward rail_end; -1 = toward rail_start).
+var _t: float = 0.0
+
+# Direction of motion along the rail. +1 = toward rail_end (forward);
+# -1 = toward rail_start (backward). Flipped on rotation_completed.
+var _direction: float = 1.0
+
+# True between rotation_started and rotation_completed. While true,
+# _physics_process early-returns so the platform doesn't move during
+# the rotation tween.
+var _is_rotating: bool = false
 
 
 func _ready() -> void:
-	# Configure the RigidBody2D child as a kinematic body: ignore
-	# gravity/physics, but push other bodies correctly.
-	# FREEZE_MODE_KINEMATIC treats the body as a kinematic actor — it
-	# can be moved by setting position, and physics-aware bodies (like
-	# the player's CharacterBody2D) interact with it as a moving
-	# platform.
+	# Configure the RigidBody2D as a kinematic collision carrier. We
+	# manually set its position every frame; the player rides it via
+	# Godot's standard collision resolution.
 	_rigid_body.freeze = true
 	_rigid_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 
-	_recompute_rail()
-	_apply_platform_size()
+	# Initialize t clamped to [0, 1] and direction forward. Set the
+	# RigidBody2D's position immediately so the platform doesn't
+	# visibly snap from origin to its actual start in the first frame.
+	_t = clamp(starting_position, 0.0, 1.0)
+	_direction = 1.0
+	_rigid_body.position = rail_start.lerp(rail_end, _t)
 
-
-# Re-derive the effective rail endpoints + direction from the current
-# @export values, and snap the platform to starting_position on the
-# (possibly new) rail. Called from _ready (initial setup) and from any
-# setter that affects the rail (axis, rail_length, rail_start, rail_end).
-#
-# Auto-compute vs override: if BOTH rail_start AND rail_end are
-# Vector2.ZERO, derive endpoints from axis + rail_length. Otherwise,
-# use the explicit values — the override path for non-axis-aligned
-# rails (diagonal, curved segments, etc.).
-#
-# queue_redraw() is NOT called here — the setters that call this
-# function are responsible for queue_redraw(), so we don't double-fire.
-func _recompute_rail() -> void:
-	if rail_start == Vector2.ZERO and rail_end == Vector2.ZERO:
-		if axis == "Vertical":
-			_effective_rail_start = Vector2(0, -rail_length * 0.5)
-			_effective_rail_end = Vector2(0, rail_length * 0.5)
-		else:
-			_effective_rail_start = Vector2(-rail_length * 0.5, 0)
-			_effective_rail_end = Vector2(rail_length * 0.5, 0)
-	else:
-		_effective_rail_start = rail_start
-		_effective_rail_end = rail_end
-	_rail_direction = (_effective_rail_end - _effective_rail_start).normalized()
-
-	# Snap to starting position on the (possibly new) rail.
-	_t = starting_position
-	_velocity = 0.0
-	if _rigid_body:
-		_rigid_body.position = lerp(_effective_rail_start, _effective_rail_end, _t)
-
-
-# Resize the collision shape + visual to match platform_size.
-func _apply_platform_size() -> void:
-	if _collision_shape and _collision_shape.shape is RectangleShape2D:
-		(_collision_shape.shape as RectangleShape2D).size = platform_size
-	if _platform_visual:
-		var half: Vector2 = platform_size * 0.5
-		_platform_visual.polygon = PackedVector2Array([
-			Vector2(-half.x, -half.y),
-			Vector2(half.x, -half.y),
-			Vector2(half.x, half.y),
-			Vector2(-half.x, half.y),
-		])
+	# Wire up to the parent's rotation signals. The platform must be
+	# a child of RotatingLevelComponents (or any node that emits
+	# rotation_started / rotation_completed) for this to work.
+	var parent := get_parent()
+	if parent:
+		if parent.has_signal("rotation_started"):
+			parent.rotation_started.connect(_on_rotation_started)
+		if parent.has_signal("rotation_completed"):
+			parent.rotation_completed.connect(_on_rotation_completed)
 
 
 func _physics_process(delta: float) -> void:
-	# Skip motion in the editor — in the 2D editor's preview SubViewport,
-	# `get_parent()` resolves to a SubViewport (not the level's Node2D
-	# hierarchy), and SubViewports have no `global_transform`. We don't
-	# need physics here anyway; _ready + _recompute_rail handle the
-	# visual setup, and inspector changes trigger queue_redraw().
-	if Engine.is_editor_hint():
+	# Pause during the rotation tween.
+	if _is_rotating:
 		return
 
-	# World-frame force: gravity for Weight, opposite-of-gravity for Balloon.
-	var world_force: Vector2
-	if motion == "Weight":
-		world_force = Vector2.DOWN * gravity
-	else:
-		world_force = Vector2.UP * buoyancy
-
-	# Transform world force into OUR local frame. The wrapper has no
-	# rotation of its own, so its global_transform carries the parent's
-	# rotation (RotatingLevelComponents); affine_inverse().basis_xform()
-	# extracts the rotation part and inverts it to convert a world-frame
-	# vector into the platform's local frame. The parent's rotation
-	# rotates the result with the level — that's how the rail's
-	# world-frame direction ends up following the rotation.
-	var local_force: Vector2 = get_parent().global_transform.affine_inverse().basis_xform(world_force)
-
-	# Project onto the rail direction. Result is in px/s² (force
-	# projected onto a unit-direction vector). The integrator below
-	# treats _velocity in t-units/s (fractional rail advance per
-	# second), so we divide by rail_length here to convert px/s² into
-	# t-units/s². Without this normalization, gravity=980 would slam
-	# _t from 0 to 1 in well under a second, and tuning the value
-	# wouldn't have a usable range.
-	var force_along_rail: float = local_force.dot(_rail_direction)
-	var rail_accel: float = force_along_rail / rail_length
-
-	# Integrate. Force is acceleration (mass = 1).
-	_velocity += rail_accel * delta
-	_t += _velocity * delta
-
-	# Clamp at endpoints. Stop at the boundary (no bounce, no reverse).
-	if _t < 0.0:
-		_t = 0.0
-		_velocity = 0.0
-	elif _t > 1.0:
-		_t = 1.0
-		_velocity = 0.0
-
-	# Apply rail offset to the RigidBody2D's local position.
-	_rigid_body.position = lerp(_effective_rail_start, _effective_rail_end, _t)
-
-
-# Editor-only: draw a rail line + endpoint markers. Drawn on the WRAPPER
-# (not the RigidBody2D), so the preview is anchored at the rail's
-# center (the wrapper's position) regardless of where the platform is
-# currently sitting on the rail. queue_redraw() (called from the @export
-# setters) is what makes this update live on inspector property changes.
-func _draw() -> void:
-	if not Engine.is_editor_hint():
+	# Zero-length rail — nothing to do. Avoids division by zero.
+	var length := rail_start.distance_to(rail_end)
+	if length <= 0.0:
 		return
-	draw_line(_effective_rail_start, _effective_rail_end, Color(0.5, 0.8, 1.0, 0.6), 2.0)
-	draw_circle(_effective_rail_start, 4.0, Color(0.5, 0.8, 1.0, 0.8))
-	draw_circle(_effective_rail_end, 4.0, Color(0.5, 0.8, 1.0, 0.8))
+
+	# Advance t at constant speed in the current direction. The
+	# direction is reversed on rotation_completed (see below).
+	_t += _direction * (motion_speed / length) * delta
+
+	# Clamp at the endpoints. No bounce, no loop — the platform waits
+	# at the rail end until the next rotation reverses its direction.
+	_t = clamp(_t, 0.0, 1.0)
+
+	# Apply the position to the kinematic body. The RigidBody2D's
+	# position is in the wrapper's local frame, so when the parent
+	# (RotatingLevelComponents) rotates, the platform's world
+	# position rotates automatically via the SceneTree transform
+	# hierarchy. The motion is in local frame.
+	_rigid_body.position = rail_start.lerp(rail_end, _t)
+
+
+# Called when the level rotation tween starts. Freezes the platform
+# so it doesn't move during the rotation animation.
+func _on_rotation_started() -> void:
+	_is_rotating = true
+
+
+# Called when the level rotation tween completes. Clears the freeze
+# flag and flips `_direction` (multiplies by -1), which reverses the
+# direction of motion. The platform stays at its current position
+# (it does NOT teleport) and resumes moving in the opposite direction.
+func _on_rotation_completed() -> void:
+	_is_rotating = false
+	_direction *= -1.0
