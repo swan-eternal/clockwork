@@ -24,19 +24,25 @@ const DEATH_HOLD_TIME := 0.2
 ## vs RUN_ACCEL so jumps feel committed and momentum is preserved —
 ## the player can nudge their trajectory mid-air but not redirect it.
 @export var AIR_ACCEL: float = 700.0
-## Upward impulse on jump (negative = up).
+## Jump impulse magnitude. Applied in the current "up" direction
+## (opposite of gravity). Stored as a negative number (up); the
+## magnitude is |JUMP_VELOCITY|.
 @export var JUMP_VELOCITY := -400.0
-## Downward acceleration (px/s²).
-@export var GRAVITY := 980.0
+## Gravitational acceleration magnitude (px/s²). Used together with
+## gravity_direction to apply gravity in the current "down" direction.
+@export var gravity_strength := 980.0
+
+## Direction of gravity in world coordinates. Starts pointing down
+## (Vector2.DOWN = (0, 1)). Rotates 90° CW on each clock tick.
+var gravity_direction: Vector2 = Vector2.DOWN
 ## How fast the player stops on flat ground (px/s²). On slopes,
 ## momentum is preserved — the slope slide + friction handle
 ## deceleration instead.
 @export var GROUND_DECEL := 1500.0
 
-## Extra downward acceleration while the down arrow is held. Adds to
-## Vector2.DOWN in world coords, so the world doesn't need to know
-## which way gravity "points" — the level rotates around the player
-## but gravity itself stays Vector2.DOWN (per Jason, 2026-07-24).
+## Extra acceleration while the down arrow is held. Applied in the
+## current gravity direction, so "down" always means "toward gravity"
+## regardless of which way gravity currently points.
 ##
 ## Effects:
 ##   - On slopes: augments the gravity-projected slope slide, so the
@@ -48,9 +54,9 @@ const DEATH_HOLD_TIME := 0.2
 ##   - On flat ground: no visible effect — move_and_slide clamps the
 ##     extra downward velocity back to zero against the floor.
 ##
-## Magnitude: 1500 is ~1.5x GRAVITY. Strong enough to feel snappy on
-## slopes, not so strong it feels like a teleport. Tune in the
-## inspector once L1 has slopes in it.
+## Magnitude: 1500 is ~1.5x gravity_strength. Strong enough to feel
+## snappy on slopes, not so strong it feels like a teleport. Tune in
+## the inspector once L1 has slopes in it.
 @export var DOWN_BOOST: float = 1500.0
 
 ## Number of physics frames a jump press is remembered while airborne.
@@ -78,9 +84,9 @@ const DEATH_HOLD_TIME := 0.2
 @export var debug_poll_interval: float = 0.5
 
 # Reference to the TileMapLayer for per-tile friction lookup.
-# RotatingLevelComponents is a sibling of Player under Main, so
-# "../RotatingLevelComponents/TileMapLayer" is the relative path.
-@onready var _tile_map: TileMapLayer = $"../RotatingLevelComponents/TileMapLayer"
+# TileMapLayer is a sibling of Player under Main, so "../TileMapLayer"
+# is the relative path.
+@onready var _tile_map: TileMapLayer = $"../TileMapLayer"
 
 # Reference to the CollisionShape2D — used to compute the player's
 # bottom offset for the friction query. Different shapes have
@@ -110,6 +116,12 @@ func _ready() -> void:
 	# Metroidvania project — write the is_in_group check AND the
 	# add_to_group call in the same commit, never split them up.
 	add_to_group("player")
+	# Connect to the clock's tick event. Each countdown_zero rotates
+	# gravity 90° CW. ClockUI is a sibling of Player under Main, so
+	# look it up via the parent.
+	var clock := get_parent().get_node_or_null("ClockUI")
+	if clock and clock.has_signal("countdown_zero"):
+		clock.countdown_zero.connect(_rotate_gravity_cw)
 
 func _physics_process(delta: float) -> void:
 	# Death freezes the player — skip all movement/physics while dying.
@@ -151,14 +163,24 @@ func _physics_process(delta: float) -> void:
 	# the press to the exact landing frame, which feels bad.
 	if Input.is_action_just_pressed("ui_accept"):
 		if is_on_floor():
-			velocity.y = JUMP_VELOCITY
+			# Jump in the current "up" direction (opposite of gravity).
+			# Keep velocity perpendicular to gravity, replace the
+			# along-gravity component with the jump speed. JUMP_VELOCITY
+			# is stored as a negative number (up), so the magnitude is
+			# -JUMP_VELOCITY.
+			var along_gravity := velocity.dot(gravity_direction) * gravity_direction
+			var perp_to_gravity := velocity - along_gravity
+			velocity = perp_to_gravity + gravity_direction * JUMP_VELOCITY
 			_jump_sound.play()
 			_jump_buffer = 0
 		else:
 			_jump_buffer = JUMP_BUFFER_FRAMES
 	elif _jump_buffer > 0 and is_on_floor():
 		# Buffered jump fires within JUMP_BUFFER_FRAMES frames of landing.
-		velocity.y = JUMP_VELOCITY
+		# Same up-direction logic as the immediate jump above.
+		var along_gravity := velocity.dot(gravity_direction) * gravity_direction
+		var perp_to_gravity := velocity - along_gravity
+		velocity = perp_to_gravity + gravity_direction * JUMP_VELOCITY
 		_jump_sound.play()
 		_jump_buffer = 0
 
@@ -173,11 +195,14 @@ func _physics_process(delta: float) -> void:
 	# Placed BEFORE vertical physics so the boost combines with gravity /
 	# slope slide in the same frame — one velocity vector goes into move_and_slide.
 	if Input.is_action_pressed("ui_down"):
-		velocity += Vector2.DOWN * DOWN_BOOST * delta
+		# Down-boost in the current gravity direction. On slopes this
+		# augments the gravity-projected slide; in midair it doubles
+		# as a fast-fall.
+		velocity += gravity_direction * DOWN_BOOST * delta
 
 	# Vertical physics: gravity when airborne, slope slide when grounded.
 	if not is_on_floor():
-		velocity.y += GRAVITY * delta
+		velocity += gravity_direction * gravity_strength * delta
 	else:
 		# On a slope, project gravity onto the slope plane and apply as
 		# acceleration. The player slides down slopes instead of sticking.
@@ -187,7 +212,11 @@ func _physics_process(delta: float) -> void:
 	# move_and_slide resolves collisions against walls / platforms using
 	# this body's CollisionShape2D. Must be the LAST physics line —
 	# anything after it reads the post-collision velocity.
-	move_and_slide()
+	# Pass -gravity_direction as the up_direction so move_and_slide
+	# uses the correct "up" for collision and sliding (default is
+	# Vector2.UP which only matches our setup when gravity is straight
+	# down).
+	move_and_slide(-gravity_direction)
 
 	# Debug output: print state to console every debug_poll_interval
 	# seconds. Toggle off via debug_output = false in the inspector.
@@ -247,20 +276,22 @@ func _get_bottom_offset() -> float:
 
 func _apply_slope_slide(delta: float, friction: float) -> void:
 	# Project gravity onto the slope plane and apply as acceleration.
-	# On flat ground (|floor_normal.y| ≈ 1), the projection is zero —
-	# no slide. Friction scales the slide via (1 - friction).
+	# On flat ground (floor_normal aligned with -gravity_direction),
+	# the projection is zero — no slide. Friction scales the slide
+	# via (1 - friction).
 	#
-	# Godot's documented convention is floor_normal points UP toward
-	# the player (so flat ground gives y = -1). The abs() check handles
-	# both sign conventions of the normal.
+	# Godot's documented convention is floor_normal points AWAY from
+	# the surface (toward the player). So flat ground has floor_normal
+	# aligned with -gravity_direction. The abs() check handles both
+	# sign conventions of the normal.
 	#
 	# 1-frame delay (uses last frame's floor_normal) is barely
 	# noticeable. A frame-perfect version would defer this until
 	# after move_and_slide, but for game-jam timing it's fine.
 	var floor_normal := get_floor_normal()
-	if abs(floor_normal.y) >= 0.999:
-		return  # flat ground, no slide needed
-	var gravity := Vector2.DOWN * GRAVITY
+	if abs(floor_normal.dot(-gravity_direction)) >= 0.999:
+		return  # flat ground relative to gravity, no slide needed
+	var gravity := gravity_direction * gravity_strength
 	var slide := gravity - floor_normal * gravity.dot(floor_normal)
 	velocity += slide * (1.0 - friction) * delta
 
@@ -315,3 +346,9 @@ func _die() -> void:
 	visible = false
 	await get_tree().create_timer(DEATH_HOLD_TIME).timeout
 	died.emit()
+
+
+# Rotates gravity 90° clockwise. Called on each ClockUI.countdown_zero
+# signal. 90° CW in Godot 2D is -PI/2 radians (rotation is CCW-positive).
+func _rotate_gravity_cw() -> void:
+	gravity_direction = gravity_direction.rotated(-PI / 2.0)
