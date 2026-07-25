@@ -1,10 +1,10 @@
 @tool
-extends RigidBody2D
+extends Node2D
 ##
 ## Clockwork moving platform. Slides along a rail in LOCAL frame under
-## gravity (Weight) or against gravity (Balloon). The platform is a
-## child of RotatingLevelComponents, so its local frame rotates with
-## the level — the rail's world-frame direction follows the rotation
+## gravity (Weight) or against gravity (Balloon). The wrapper is a child
+## of RotatingLevelComponents, so its local frame rotates with the
+## level — the rail's world-frame direction follows the rotation
 ## automatically, with no joint, no sync_to_physics trick, no
 ## freeze-mode gymnastics.
 ##
@@ -12,12 +12,12 @@ extends RigidBody2D
 ##   - axis:   "Vertical" (rail along local Y) or "Horizontal" (rail along local X)
 ##   - motion: "Weight" (falls with gravity) or "Balloon" (rises with buoyancy)
 ##
-## The platform is a kinematic RigidBody2D (freeze = true,
+## The RigidBody2D child is a kinematic body (freeze = true,
 ## freeze_mode = FREEZE_MODE_KINEMATIC). When frozen, it doesn't
 ## respond to gravity or forces, but it can be moved by setting
 ## position, and it pushes other bodies (like the player) out of the way.
 ## The rotation is handled by the SceneTree transform hierarchy — the
-## platform is a child of RotatingLevelComponents, so as the parent
+## wrapper is a child of RotatingLevelComponents, so as the parent
 ## rotates, the platform's global_rotation follows.
 ##
 
@@ -35,12 +35,14 @@ extends RigidBody2D
 @export_enum("Weight", "Balloon") var motion: String = "Weight"
 
 # Length of the rail (in local px). The rail is centered at the
-# platform's placed position (the .tscn's `position` field).
+# wrapper's placed position (the .tscn's `position` field).
 @export var rail_length: float = 200.0
 
 # Starting position along the rail. 0.0 = at rail_start, 1.0 = at
-# rail_end. Resets on level reload (the script re-runs _ready).
-@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.0
+# rail_end. Default 0.5 = rail's center (visually aligned with the
+# wrapper's position). Resets on level reload (the script re-runs
+# _ready).
+@export_range(0.0, 1.0, 0.01) var starting_position: float = 0.5
 
 # Force magnitudes (px/s²). Same units for Weight and Balloon — the
 # difference is the direction (DOWN vs UP). Exported as separate
@@ -67,20 +69,23 @@ var _velocity: float = 0.0
 # Unit vector along the rail (local frame). Computed once in _ready().
 var _rail_direction: Vector2 = Vector2.DOWN
 
-@onready var _collision_shape: CollisionShape2D = $CollisionShape2D
-@onready var _platform_visual: Polygon2D = $PlatformVisual
+@onready var _rigid_body: RigidBody2D = $RigidBody2D
+@onready var _collision_shape: CollisionShape2D = $RigidBody2D/CollisionShape2D
+@onready var _platform_visual: Polygon2D = $RigidBody2D/PlatformVisual
 
 
 func _ready() -> void:
-	# Kinematic body: ignore gravity/physics, but push other bodies correctly.
-	# FREEZE_MODE_KINEMATIC treats the body as a kinematic actor — it can
-	# be moved by setting position, and physics-aware bodies (like the
-	# player's CharacterBody2D) interact with it as a moving platform.
-	freeze = true
-	freeze_mode = FREEZE_MODE_KINEMATIC
+	# Configure the RigidBody2D child as a kinematic body: ignore
+	# gravity/physics, but push other bodies correctly.
+	# FREEZE_MODE_KINEMATIC treats the body as a kinematic actor — it
+	# can be moved by setting position, and physics-aware bodies (like
+	# the player's CharacterBody2D) interact with it as a moving
+	# platform.
+	_rigid_body.freeze = true
+	_rigid_body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
 
 	# Auto-compute rail endpoints if not overridden. Rail is centered
-	# at the platform's placed position (the .tscn's `position` field).
+	# at the wrapper's placed position (the .tscn's `position` field).
 	if rail_start == Vector2.ZERO and rail_end == Vector2.ZERO:
 		if axis == "Vertical":
 			rail_start = Vector2(0, -rail_length * 0.5)
@@ -94,7 +99,7 @@ func _ready() -> void:
 	# rail with zero velocity.
 	_t = starting_position
 	_velocity = 0.0
-	position = lerp(rail_start, rail_end, _t)
+	_rigid_body.position = lerp(rail_start, rail_end, _t)
 
 	# Match the collision shape and visual to platform_size.
 	if _collision_shape and _collision_shape.shape is RectangleShape2D:
@@ -117,12 +122,13 @@ func _physics_process(delta: float) -> void:
 	else:
 		world_force = Vector2.UP * buoyancy
 
-	# Transform world force into OUR local frame. The parent's rotation
+	# Transform world force into OUR local frame. The wrapper has no
+	# rotation of its own, so its global_transform carries the parent's
+	# rotation (RotatingLevelComponents); affine_inverse().basis_xform()
+	# extracts the rotation part and inverts it to convert a world-frame
+	# vector into the platform's local frame. The parent's rotation
 	# rotates the result with the level — that's how the rail's
 	# world-frame direction ends up following the rotation.
-	#
-	# Affine_inverse() includes the parent's rotation; basis_xform()
-	# applies just the rotation part to the vector (no translation).
 	var local_force: Vector2 = get_parent().global_transform.affine_inverse().basis_xform(world_force)
 
 	# Project onto the rail direction (also in local frame).
@@ -141,14 +147,17 @@ func _physics_process(delta: float) -> void:
 		_t = 1.0
 		_velocity = 0.0
 
-	# Apply rail offset to local position. The parent's rotation
-	# rotates this for free (SceneTree transform hierarchy).
-	position = lerp(rail_start, rail_end, _t)
+	# Apply rail offset to the RigidBody2D's local position. The
+	# parent's rotation rotates this for free (SceneTree transform
+	# hierarchy).
+	_rigid_body.position = lerp(rail_start, rail_end, _t)
 
 
 # Editor-only: draw a rail line + endpoint markers so the level
-# designer can see where the platform will travel. Drawn only in
-# the editor (not at runtime).
+# designer can see where the platform will travel. Drawn on the WRAPPER
+# (not the RigidBody2D), so the preview is anchored at the rail's
+# center (the wrapper's position) regardless of where the platform is
+# currently sitting on the rail.
 func _draw() -> void:
 	if not Engine.is_editor_hint():
 		return
