@@ -96,7 +96,11 @@ Five cross-level systems, designed up-front so they slot into the level template
 
 ### Moving Platforms
 
-One scene preset (`scenes/platform.tscn`) — direction is just a vector set per instance in the inspector, so one generic preset replaces the OLD 4-preset (WEIGHT_Y/X, BUOYANT_Y/X) scheme.
+Two scene presets, both driven by `scripts/platform.gd`:
+- `scenes/platform.tscn` — 30×30 (1×1 tile)
+- `scenes/platform_2x1.tscn` — 30×60 (2 tiles perpendicular to the rail, 1 tile along)
+
+Direction (`axis` + `motion_type`) and rail length (`rail_length_units`) are just per-instance inspector values, so the OLD 4-preset (WEIGHT_Y/X, BUOYANT_Y/X) scheme is collapsed to one script + two scene variants. The script auto-detects wide variants from the initial CollisionShape2D size (width != height) and swaps width/height when `axis` changes in the inspector, so the long side stays perpendicular to the rail.
 
 **Architecture** (Node2D wrapper + AnimatableBody2D child):
 

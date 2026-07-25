@@ -48,6 +48,7 @@ enum Axis { X, Y }
 		axis = value
 		_rail_direction = Vector2.RIGHT if axis == Axis.X else Vector2.DOWN
 		_update_rail_preview()
+		_update_platform_size()
 		_update_position()
 
 ## Rail length in units of 32 pixels (matching the default tile size).
@@ -91,6 +92,11 @@ var _t: float = 0.0
 var _direction: float = 1.0
 # False when gravity is perpendicular to rail -- platform stays still.
 var _active: bool = false
+# True for 30x60 (2-tile-wide) platforms, false for 30x30. Auto-detected
+# by _update_platform_size() from the CollisionShape2D's bounding box
+# (width != height), so the same script works for both platform.tscn
+# and platform_2x1.tscn without an explicit @export flag.
+var _is_wide_platform: bool = false
 
 func _ready() -> void:
 	# _t was already set by the starting_position setter. Re-apply in
@@ -147,6 +153,40 @@ func _on_gravity_changed(new_gravity: Vector2) -> void:
 	var motion_sign := gravity_sign if motion_type == MotionType.WEIGHT else -gravity_sign
 	_direction = motion_sign
 	_active = true
+
+# Update the platform's collision shape and polygon visual based on the
+# current axis. For 30x30 platforms, no change. For 30x60 (wide) platforms,
+# the long side is always perpendicular to the rail: Y axis -> long side
+# horizontal (60 wide x 30 tall, polygon (-30,-15) to (30,15)); X axis ->
+# long side vertical (30 wide x 60 tall, polygon (-15,-30) to (15,30)).
+# The wrapper node is at (0,0) so the rail line (line points [0,0] to
+# [rail_direction * rail_length]) always passes through the platform's
+# center, satisfying the "rail through the middle" requirement.
+# Auto-detects wide from the initial shape (width != height), so this
+# works for both platform.tscn (30x30) and platform_2x1.tscn (30x60)
+# without per-scene configuration.
+func _update_platform_size() -> void:
+	var body := get_node_or_null("AnimatableBody2D")
+	if not body:
+		return
+	var collision_shape_node := body.get_node_or_null("CollisionShape2D")
+	if not collision_shape_node or not collision_shape_node.shape is RectangleShape2D:
+		return
+	var shape := collision_shape_node.shape as RectangleShape2D
+	_is_wide_platform = shape.size.x != shape.size.y
+	if not _is_wide_platform:
+		return
+	var polygon := body.get_node_or_null("Polygon2D") as Polygon2D
+	if axis == Axis.Y:
+		# Vertical rail: long side horizontal.
+		shape.size = Vector2(60, 30)
+		if polygon:
+			polygon.polygon = PackedVector2Array(-30, -15, 30, -15, 30, 15, -30, 15)
+	else:
+		# Horizontal rail: long side vertical.
+		shape.size = Vector2(30, 60)
+		if polygon:
+			polygon.polygon = PackedVector2Array(-15, -30, 15, -30, 15, 30, -15, 30)
 
 # Updates the platform body's local position along the rail. Looks up
 # the body via get_node_or_null() (not @onready) so this works in the
