@@ -253,14 +253,6 @@ func _physics_process(delta: float) -> void:
 	# player can immediately re-stick on the same tile after dislodging).
 	if _frames_since_disloged > 0:
 		_frames_since_disloged -= 1
-	# Detect sticky on initial wall contact only. Once stuck, the
-	# player stays stuck until jump dislodges them (the jump branch
-	# sets _is_stuck_to_wall = false and starts the refraction cooldown).
-	# The previous code re-evaluated every frame, which let a single
-	# missed is_on_wall() (e.g., mid-tick during a gravity rotation)
-	# unstick the player even when they were still glued to the wall.
-	if not _is_stuck_to_wall and (is_on_wall() or is_on_ceiling()) and _frames_since_disloged == 0:
-		_is_stuck_to_wall = _is_stickable_surface()
 	# Maintain coyote-time counter: 0 while grounded, +1 per air frame.
 	# Reset to 1000 after a successful jump (below) so coyote jumps
 	# can't chain without the player touching ground in between.
@@ -281,6 +273,18 @@ func _physics_process(delta: float) -> void:
 		if impact_speed > LANDING_SOUND_MIN_SPEED:
 			_land_sound.play()
 	_was_on_floor = is_on_floor()
+	# Sticky detection: check every slide collision this frame for a
+	# sticky tile. Direct, no need to maintain parallel is_on_wall /
+	# is_on_ceiling checks -- the collision data tells us what we
+	# actually hit. Sets _is_stuck_to_wall once and stays set until
+	# jump dislodges (handled in the jump branch). Refraction cooldown
+	# blocks re-engagement so a dislodge arc can clear the tile first.
+	if not _is_stuck_to_wall and _frames_since_disloged == 0:
+		for i in range(get_slide_collision_count()):
+			if _collision_is_sticky(get_slide_collision(i)):
+				_is_stuck_to_wall = true
+				velocity = Vector2.ZERO
+				break
 	# Horizontal input from left/right arrows or A/D.
 	var input_dir := Input.get_axis("ui_left", "ui_right")
 
@@ -440,26 +444,16 @@ func _physics_process(delta: float) -> void:
 # false if not touching any wall, or if the wall tile doesn't have
 # sticky=true.
 #
-# Checks if the surface the player is currently touching (wall or
-# ceiling) is a sticky tile. The sample is taken slightly outside the
-# player's collision radius (14px for the default 13px circle) in the
-# direction INTO the surface, so it lands 1px inside the contact tile.
-# The wall case uses get_wall_normal(); the ceiling case uses
-# Vector2.DOWN (the ceiling's bottom surface normal points down).
-func _is_stickable_surface() -> bool:
+# Tests whether a slide collision is with a sticky tile. The sample
+# point is taken just outside the player's collision radius (14px for
+# the default 13px circle) in the direction of the collision normal,
+# so it lands 1px inside the contact tile. Works for any surface
+# (walls, ceilings, slopes) -- the collision data already knows what
+# was hit, so no separate is_on_wall / is_on_ceiling branches.
+func _collision_is_sticky(collision: KinematicCollision2D) -> bool:
 	if not _tile_map:
 		return false
-	if not is_on_wall() and not is_on_ceiling():
-		return false
-	var surface_normal: Vector2
-	if is_on_wall():
-		surface_normal = get_wall_normal()
-	else:  # is_on_ceiling()
-		surface_normal = Vector2.DOWN
-	if surface_normal == Vector2.ZERO:
-		return false
-	# The contact tile is at global_position + (-surface_normal) * sample_distance.
-	var sample := global_position + (-surface_normal) * 14.0
+	var sample := collision.get_position() + collision.get_normal() * 14.0
 	var local_pos := _tile_map.to_local(sample)
 	var cell := _tile_map.local_to_map(local_pos)
 	var tile_data := _tile_map.get_cell_tile_data(cell)
