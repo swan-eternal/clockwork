@@ -453,7 +453,11 @@ func _physics_process(delta: float) -> void:
 func _collision_is_sticky(collision: KinematicCollision2D) -> bool:
 	if not _tile_map:
 		return false
-	var sample := collision.get_position() + collision.get_normal() * 14.0
+	# The collision normal points AWAY from the contact surface. To sample
+	# INSIDE the contact tile, go in the OPPOSITE direction (-normal).
+	# 14px is slightly outside the default 13px collision radius, so
+	# the sample lands 1px inside the contact tile.
+	var sample := collision.get_position() - collision.get_normal() * 14.0
 	var local_pos := _tile_map.to_local(sample)
 	var cell := _tile_map.local_to_map(local_pos)
 	var tile_data := _tile_map.get_cell_tile_data(cell)
