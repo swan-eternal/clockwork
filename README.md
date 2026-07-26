@@ -146,6 +146,13 @@ Setters on `axis`, `rail_length_units`, and `starting_position` call `_update_ra
 
 **Reset on level reload:** `_ready()` resets `t = starting_position` (clamped) and the `AnimatableBody2D`'s `position` to `rail_direction * (rail_length * t)`. Death flow (`get_tree().reload_current_scene()`) automatically calls `_ready()` on the new instance, so the platform returns to its starting position.
 
+### Tutorial Labels
+
+- `scenes/tutorial_label.tscn` — a Node2D with the `tutorial_label.gd` script attached. Drop into a level scene as a child of `Main`, position where the message should appear in the level, set `text` in the inspector. The text auto-rotates on every gravity tick so it stays upright in the (rotating) camera view. (Originally extended `Label2D`, but that class isn't registered in this Godot build — the parser reported "Could not find base class Label2D" on load. The script falls back to a custom `Node2D` that renders text via `Font.draw_string()` / `draw_string_outline()` in `_draw()`. No `@tool` -- the script uses string-based dynamic autoload access (`GravityManager.connect("gravity_changed", ...)` and `GravityManager.get("gravity_direction")`) to avoid the @tool + autoload static-analysis gap. Runtime-only; no live editor preview.)
+- The rotation trick: the script subscribes to `GravityManager.gravity_changed` and sets `rotation = gravity_direction.angle() - PI/2` — the same target the camera tweens to in `Player._rotate_gravity_cw`. Since the label and camera share the formula, `label.global_rotation - camera.global_rotation = 0` and the text always reads upright.
+- Default styling in the scene file is white text (`font_size` 24) with a 4px black outline. All of these are inspector-tunable `@export` properties on the script — `text`, `font_size`, `outline_size`, `pixel_size` (scale multiplier), `font_color`, `outline_color` — each setter triggers `queue_redraw()` so changes are immediate, both at runtime and in the editor.
+- Handles the initial state in `_ready()` so the label is upright on the very first frame, before any countdown tick has fired.
+
 ### Main Menu + Level Select
 
 - Separate scenes: `main_menu.tscn` (start) → click to start → `scenes/levels/L1.tscn` → ... → `scenes/levels/L3.tscn` → end screen.
@@ -242,6 +249,8 @@ Levels (placeholder tilemaps until Jason picks a tileset):
 - [x] `level_complete_ui.tscn` (fade-in win screen — replaces the `print()` placeholder in `level.gd`)
 - [x] `level_select.tscn` (L1/L2/L3 list with completion state)
 - [x] Gravity rotation + camera rotation + gravity-relative input (Phase 2/3/4)
+- [x] **Tutorial label primitive** — `scripts/tutorial_label.gd` + `scenes/tutorial_label.tscn`. A Node2D that listens to `GravityManager.gravity_changed` and mirrors the camera's rotation formula so text stays upright in the camera view across every tick. Originally extended Label2D, but that class isn't registered in this build (parser reported "Could not find base class Label2D" on load); the script falls back to a custom Node2D that draws via `Font.draw_string` / `draw_string_outline` in `_draw`. No `@tool` -- string-based dynamic autoload access (`GravityManager.connect("gravity_changed", ...)` / `GravityManager.get("gravity_direction")`) avoids the @tool + autoload static-analysis gap. Runtime-only; no live editor preview. Drop instances into a level, position them, set `text` in the inspector.
+- [ ] Tutorial / first-30-seconds UX — primitive shipped; copy + placement TBD (Jason's call per level)
 - [x] Moving platforms v2 (gravity-driven motion, AnimatableBody2D + Line2D rail preview)
 - [ ] Audio (SFX for tick, win, die, rotate)
 - [ ] Visual polish on rotation (camera shake? quick zoom? particles?)
