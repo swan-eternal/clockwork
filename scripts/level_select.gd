@@ -1,6 +1,6 @@
 extends Control
 ##
-## Level select screen for Clockwork. Lists L1/L2/L3 as buttons;
+## Level select screen for Clockwork. Lists L1/L2/L3/L4 as buttons;
 ## each loads the corresponding scene. Completion state comes from
 ## the ProgressTracker autoload (in-memory; resets per game launch).
 ##
@@ -21,6 +21,7 @@ extends Control
 @export var l1_path: String = "res://scenes/levels/L1.tscn"
 @export var l2_path: String = "res://scenes/levels/L2.tscn"
 @export var l3_path: String = "res://scenes/levels/L3.tscn"
+@export var l4_path: String = "res://scenes/levels/L4.tscn"
 ## Where the Back button takes the player.
 @export var back_scene: String = "res://scenes/main_menu.tscn"
 ## Suffix appended to a level button's text when that level has been
@@ -30,12 +31,14 @@ extends Control
 @onready var _l1_button: Button = $CenterContainer/VBox/L1Button
 @onready var _l2_button: Button = $CenterContainer/VBox/L2Button
 @onready var _l3_button: Button = $CenterContainer/VBox/L3Button
+@onready var _l4_button: Button = $CenterContainer/VBox/L4Button
 @onready var _back_button: Button = $CenterContainer/VBox/BackButton
 
 func _ready() -> void:
 	_l1_button.pressed.connect(_on_l1_pressed)
 	_l2_button.pressed.connect(_on_l2_pressed)
 	_l3_button.pressed.connect(_on_l3_pressed)
+	_l4_button.pressed.connect(_on_l4_pressed)
 	_back_button.pressed.connect(_on_back_pressed)
 	# Refresh button labels to reflect current completion state.
 	_refresh_labels()
@@ -54,6 +57,9 @@ func _on_l2_pressed() -> void:
 func _on_l3_pressed() -> void:
 	get_tree().change_scene_to_file(l3_path)
 
+func _on_l4_pressed() -> void:
+	get_tree().change_scene_to_file(l4_path)
+
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file(back_scene)
 
@@ -65,6 +71,7 @@ func _refresh_labels() -> void:
 	_l1_button.text = "Level 1" + _suffix_for(l1_path)
 	_l2_button.text = "Level 2" + _suffix_for(l2_path)
 	_l3_button.text = "Level 3" + _suffix_for(l3_path)
+	_l4_button.text = "Level 4" + _suffix_for(l4_path)
 
 func _suffix_for(level_path: String) -> String:
 	return completed_suffix if ProgressTracker.is_completed(level_path) else ""
