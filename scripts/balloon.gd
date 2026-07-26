@@ -64,9 +64,9 @@ func _physics_process(_delta: float) -> void:
 	# displacement should pull the balloon back to the cardinal
 	# equilibrium, but only if the body is awake. Without this, a
 	# brief moment of low velocity can put the body to sleep and the
-	# spring stops being able to correct it.
-	if sleeping:
-		wake_up()
+	# spring stops being able to correct it. RigidBody2D in Godot 4
+	# has no wake_up() method — setting sleeping = false does the job.
+	sleeping = false
 	# Read gravity directly from the global singleton each tick. A
 	# Vector2 read is cheap and avoids the "did I miss the signal?"
 	# bug class entirely — no subscription bookkeeping.
