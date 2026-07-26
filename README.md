@@ -102,6 +102,8 @@ Two scene presets, both driven by `scripts/platform.gd`:
 
 Direction (`axis` + `motion_type`) and rail length (`rail_length_units`) are just per-instance inspector values, so the OLD 4-preset (WEIGHT_Y/X, BUOYANT_Y/X) scheme is collapsed to one script + two scene variants. The script auto-detects wide variants from the initial CollisionShape2D size (width != height) and swaps width/height when `axis` changes in the inspector, so the long side stays perpendicular to the rail.
 
+**Spike platforms** ("kill-spikes" on a chosen side): both scene presets ship a `SpikesArea` `Area2D` child with `collision_layer = 2` (matches the player's `DeathDetector` mask). Two new @export vars on the script: `has_spikes: bool` (toggle the spikes on/off) and `spike_direction: SpikeDirection` (UP/DOWN/LEFT/RIGHT — see the script doc for orientation semantics). When enabled, the script populates a CollisionPolygon2D + Polygon2D with 3 triangular spikes along the chosen side, each peak 30 px out from the platform's edge. For the 30x60 variant, the side length adapts to the platform's current orientation (axis=Y → long side is the spike side; axis=X → short side), so the spike count and width track the geometry automatically.
+
 **Architecture** (Node2D wrapper + AnimatableBody2D child):
 
 ```

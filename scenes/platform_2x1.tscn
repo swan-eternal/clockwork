@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://d8w2x4g6n1q5p"]
+[gd_scene format=3 uid="uid://ei7d2jw3tvex"]
 
 [ext_resource type="Script" path="res://scripts/platform.gd" id="1_platform"]
 
@@ -16,6 +16,20 @@ shape = SubResource("RectangleShape2D_platform")
 [node name="Polygon2D" type="Polygon2D" parent="AnimatableBody2D"]
 color = Color(0.6, 0.4, 0.3, 1)
 polygon = PackedVector2Array(-30, -15, 30, -15, 30, 15, -30, 15)
+
+[node name="SpikesArea" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="SpikeCollision" type="CollisionPolygon2D" parent="SpikesArea"]
+polygon = PackedVector2Array()
+
+[node name="SpikeVisual" type="Polygon2D" parent="SpikesArea"]
+color = Color(0.8, 0.2, 0.2, 1)
+visible = false
+polygon = PackedVector2Array()
 
 [node name="RailPreview" type="Line2D" parent="."]
 points = PackedVector2Array(0, 0, 0, 96)

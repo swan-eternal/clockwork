@@ -36,6 +36,18 @@ enum MotionType { WEIGHT, BUOYANT }
 ## world +y, i.e., downward in Godot's screen coords).
 enum Axis { X, Y }
 
+## Which side of the platform the spikes are on. UP/DOWN are the
+## short ends of the platform (perpendicular to the rail axis).
+## LEFT/RIGHT are along the rail axis -- less common but allowed
+## for symmetric cases.
+##
+## For the 30x60 wide variant, the side adapts to the platform's
+## current orientation: spike_direction=UP means "top edge in the
+## platform's local frame", which is the long side for axis=Y and
+## the short side for axis=X. The polygon is recomputed when axis
+## changes so the spike count and width track the side length.
+enum SpikeDirection { UP, DOWN, LEFT, RIGHT }
+
 ## Motion type. WEIGHT falls in the direction of gravity; BUOYANT
 ## rises against gravity.
 @export var motion_type: MotionType = MotionType.WEIGHT
@@ -50,6 +62,7 @@ enum Axis { X, Y }
 		_update_rail_preview()
 		_update_platform_size()
 		_update_position()
+		_update_spikes()
 
 ## Rail length in units of 32 pixels (matching the default tile size).
 ## rail_length_units=2 -> 64px, =3 -> 96px, etc. Snaps to grid by design.
@@ -73,6 +86,27 @@ enum Axis { X, Y }
 
 ## Constant lerp speed in pixels per second.
 @export var motion_speed: float = 60.0
+
+## If true, the platform has kill-spikes on the chosen side. Spikes
+## are a separate Area2D child (SpikesArea, collision_layer = 2 to
+## match the player's DeathDetector mask) so the regular platform
+## collision (AnimatableBody2D) is unaffected -- the player can still
+## stand on the platform body, but walking into the spikes triggers
+## death. Setter toggles the Area2D's monitoring and updates the
+## spike polygon.
+@export var has_spikes: bool = false:
+	set(value):
+		has_spikes = value
+		_update_spikes()
+
+## Which side of the platform the spikes are on. See SpikeDirection
+## enum for the orientation semantics. Setter recomputes the spike
+## polygon (the side length depends on the platform's current shape
+## size, which changes with axis for the wide variant).
+@export var spike_direction: SpikeDirection = SpikeDirection.UP:
+	set(value):
+		spike_direction = value
+		_update_spikes()
 
 # AnimatableBody2D and Line2D are looked up via get_node_or_null() in
 # _update_position() / _update_rail_preview() rather than cached as
@@ -99,6 +133,7 @@ var _active: bool = false
 var _is_wide_platform: bool = false
 
 func _ready() -> void:
+	_update_spikes()
 	# _t was already set by the starting_position setter. Re-apply in
 	# case the setter didn't run (e.g., if the node was instantiated
 	# without going through the script's setter chain -- e.g., loading
@@ -187,6 +222,92 @@ func _update_platform_size() -> void:
 		shape.size = Vector2(30, 60)
 		if polygon:
 			polygon.polygon = PackedVector2Array([Vector2(-15, -30), Vector2(15, -30), Vector2(15, 30), Vector2(-15, 30)])
+
+# Update the spike area: if has_spikes is true, populate the spike
+# polygon on the chosen side and enable the Area2D's monitoring. If
+# false, disable monitoring and hide the visual. Called whenever
+# axis, has_spikes, or spike_direction changes (and at _ready).
+# Reads the platform's current shape size to compute the side length,
+# so the spike count and width track the platform's orientation --
+# important for the 30x60 wide variant where the long/short side
+# swaps with axis.
+func _update_spikes() -> void:
+	var spikes_area := get_node_or_null("SpikesArea")
+	if not spikes_area:
+		return
+	var collision_node := spikes_area.get_node_or_null("SpikeCollision")
+	var visual_node := spikes_area.get_node_or_null("SpikeVisual")
+	if has_spikes:
+		var body := get_node_or_null("AnimatableBody2D")
+		if not body:
+			return
+		var shape_node := body.get_node_or_null("CollisionShape2D")
+		if not shape_node or not shape_node.shape is RectangleShape2D:
+			return
+		var size := (shape_node.shape as RectangleShape2D).size
+		var poly := _spike_polygon(size, spike_direction)
+		if collision_node:
+			collision_node.polygon = poly
+		if visual_node:
+			visual_node.polygon = poly
+			visual_node.visible = true
+		spikes_area.monitoring = true
+	else:
+		spikes_area.monitoring = false
+		if visual_node:
+			visual_node.visible = false
+
+# Build the spike polygon for a given platform size and direction. The
+# polygon is a zigzag of 3 triangles along the chosen side, with each
+# triangle's peak 30 pixels out from the platform's edge (per Jason's
+# spec: spikes start at the platform edge and extend 30 pixels). The
+# triangles share their base along the side, so the polygon is a single
+# closed shape suitable for both the visual Polygon2D and the
+# CollisionPolygon2D. The number of triangles is fixed at 3; the
+# triangle width scales with the side length, so a 60-wide side gets
+# 3 wider triangles and a 30-wide side gets 3 narrower triangles.
+func _spike_polygon(size: Vector2, direction: SpikeDirection) -> PackedVector2Array:
+	var points: Array[Vector2] = []
+	const PEAK_DISTANCE := 30.0
+	const NUM_TRIANGLES := 3
+	match direction:
+		SpikeDirection.UP:
+			var edge_y := -size.y / 2.0
+			var tri_w := size.x / NUM_TRIANGLES
+			for i in range(NUM_TRIANGLES + 1):
+				var base_x := -size.x / 2.0 + i * tri_w
+				points.append(Vector2(base_x, edge_y))
+				if i < NUM_TRIANGLES:
+					var peak_x := -size.x / 2.0 + (i + 0.5) * tri_w
+					points.append(Vector2(peak_x, edge_y - PEAK_DISTANCE))
+		SpikeDirection.DOWN:
+			var edge_y := size.y / 2.0
+			var tri_w := size.x / NUM_TRIANGLES
+			for i in range(NUM_TRIANGLES + 1):
+				var base_x := -size.x / 2.0 + i * tri_w
+				points.append(Vector2(base_x, edge_y))
+				if i < NUM_TRIANGLES:
+					var peak_x := -size.x / 2.0 + (i + 0.5) * tri_w
+					points.append(Vector2(peak_x, edge_y + PEAK_DISTANCE))
+		SpikeDirection.LEFT:
+			var edge_x := -size.x / 2.0
+			var tri_h := size.y / NUM_TRIANGLES
+			for i in range(NUM_TRIANGLES + 1):
+				var base_y := -size.y / 2.0 + i * tri_h
+				points.append(Vector2(edge_x, base_y))
+				if i < NUM_TRIANGLES:
+					var peak_y := -size.y / 2.0 + (i + 0.5) * tri_h
+					points.append(Vector2(edge_x - PEAK_DISTANCE, peak_y))
+		SpikeDirection.RIGHT:
+			var edge_x := size.x / 2.0
+			var tri_h := size.y / NUM_TRIANGLES
+			for i in range(NUM_TRIANGLES + 1):
+				var base_y := -size.y / 2.0 + i * tri_h
+				points.append(Vector2(edge_x, base_y))
+				if i < NUM_TRIANGLES:
+					var peak_y := -size.y / 2.0 + (i + 0.5) * tri_h
+					points.append(Vector2(edge_x + PEAK_DISTANCE, peak_y))
+	return PackedVector2Array(points)
 
 # Updates the platform body's local position along the rail. Looks up
 # the body via get_node_or_null() (not @onready) so this works in the

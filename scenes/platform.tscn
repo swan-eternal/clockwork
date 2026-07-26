@@ -17,6 +17,20 @@ shape = SubResource("RectangleShape2D_platform")
 color = Color(0.6, 0.4, 0.3, 1)
 polygon = PackedVector2Array(-15, -15, 15, -15, 15, 15, -15, 15)
 
+[node name="SpikesArea" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="SpikeCollision" type="CollisionPolygon2D" parent="SpikesArea"]
+polygon = PackedVector2Array()
+
+[node name="SpikeVisual" type="Polygon2D" parent="SpikesArea"]
+color = Color(0.8, 0.2, 0.2, 1)
+visible = false
+polygon = PackedVector2Array()
+
 [node name="RailPreview" type="Line2D" parent="."]
 points = PackedVector2Array(0, 0, 0, 96)
 width = 2.0
