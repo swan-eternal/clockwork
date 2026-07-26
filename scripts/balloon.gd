@@ -44,6 +44,14 @@ func _ready() -> void:
 	# re-applies the correct freeze state, so this is a one-shot fix
 	# that gets overwritten if motion_type=WEIGHT.
 	freeze = false
+	# Belt-and-suspenders against the off-axis-settling bug. If the
+	# body sleeps, the spring can't pull it back to the cardinal
+	# equilibrium — forces don't apply to sleeping bodies. The
+	# `can_sleep = false` flag in the scene file should already do
+	# this, but it apparently isn't taking effect at runtime, so set
+	# it again in code and explicitly wake the body.
+	can_sleep = false
+	sleeping = false
 
 
 func _physics_process(_delta: float) -> void:
@@ -52,6 +60,13 @@ func _physics_process(_delta: float) -> void:
 	# application — the balloon sits anchored at its initial position.
 	if freeze:
 		return
+	# Keep the body awake each frame. The spring force at the wrong
+	# displacement should pull the balloon back to the cardinal
+	# equilibrium, but only if the body is awake. Without this, a
+	# brief moment of low velocity can put the body to sleep and the
+	# spring stops being able to correct it.
+	if sleeping:
+		wake_up()
 	# Read gravity directly from the global singleton each tick. A
 	# Vector2 read is cheap and avoids the "did I miss the signal?"
 	# bug class entirely — no subscription bookkeeping.
