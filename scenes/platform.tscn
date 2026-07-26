@@ -1,37 +1,34 @@
 [gd_scene format=3 uid="uid://cw7lam2x4pq1a"]
 
-[ext_resource type="Script" path="res://scripts/platform.gd" id="1_platform"]
+[ext_resource type="Script" uid="uid://dhu8wdvruo67" path="res://scripts/platform.gd" id="1_platform"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(30, 30)
 
-[node name="Platform" type="Node2D"]
+[node name="Platform" type="Node2D" unique_id=775245455]
 script = ExtResource("1_platform")
 
-[node name="AnimatableBody2D" type="AnimatableBody2D" parent="."]
+[node name="AnimatableBody2D" type="AnimatableBody2D" parent="." unique_id=167472732]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="AnimatableBody2D"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AnimatableBody2D" unique_id=898257636]
 shape = SubResource("RectangleShape2D_platform")
 
-[node name="Polygon2D" type="Polygon2D" parent="AnimatableBody2D"]
+[node name="Polygon2D" type="Polygon2D" parent="AnimatableBody2D" unique_id=1050697393]
 color = Color(0.6, 0.4, 0.3, 1)
 polygon = PackedVector2Array(-15, -15, 15, -15, 15, 15, -15, 15)
 
-[node name="SpikesArea" type="Area2D" parent="."]
+[node name="SpikesArea" type="StaticBody2D" parent="AnimatableBody2D" unique_id=1011051027]
 collision_layer = 2
 collision_mask = 0
-monitoring = false
-monitorable = false
 
-[node name="SpikeCollision" type="CollisionPolygon2D" parent="SpikesArea"]
-polygon = PackedVector2Array()
+[node name="SpikeCollision" type="CollisionPolygon2D" parent="AnimatableBody2D/SpikesArea" unique_id=812848466]
+disabled = true
 
-[node name="SpikeVisual" type="Polygon2D" parent="SpikesArea"]
-color = Color(0.8, 0.2, 0.2, 1)
+[node name="SpikeVisual" type="Polygon2D" parent="AnimatableBody2D/SpikesArea" unique_id=1792285445]
 visible = false
-polygon = PackedVector2Array()
+color = Color(0.8, 0.2, 0.2, 1)
 
-[node name="RailPreview" type="Line2D" parent="."]
+[node name="RailPreview" type="Line2D" parent="." unique_id=1817948824]
 points = PackedVector2Array(0, 0, 0, 96)
 width = 2.0
 default_color = Color(1, 1, 0.5, 0.8)

@@ -232,7 +232,7 @@ func _update_platform_size() -> void:
 # important for the 30x60 wide variant where the long/short side
 # swaps with axis.
 func _update_spikes() -> void:
-	var spikes_area := get_node_or_null("SpikesArea")
+	var spikes_area := get_node_or_null("AnimatableBody2D/SpikesArea")
 	if not spikes_area:
 		return
 	var collision_node := spikes_area.get_node_or_null("SpikeCollision")
@@ -251,9 +251,13 @@ func _update_spikes() -> void:
 		if visual_node:
 			visual_node.polygon = poly
 			visual_node.visible = true
-		spikes_area.monitoring = true
+		if collision_node:
+			collision_node.disabled = false
+		if visual_node:
+			visual_node.visible = true
 	else:
-		spikes_area.monitoring = false
+		if collision_node:
+			collision_node.disabled = true
 		if visual_node:
 			visual_node.visible = false
 
