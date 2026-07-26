@@ -8,9 +8,20 @@
 [ext_resource type="PackedScene" path="res://scenes/level_complete_ui.tscn" id="6_lcui"]
 [ext_resource type="PackedScene" path="res://scenes/game_complete_ui.tscn" id="7_gcui"]
 [ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_pm"]
+[ext_resource type="CompressedTexture2D" uid="uid://1taiedjl8wf8" path="res://assets/sprites/background/AlexZelnitskiyBG.png" id="9_bg"]
 
 [node name="Main" type="Node2D" unique_id=2143881974]
 script = ExtResource("5_level")
+
+[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+
+[node name="ParallaxLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0.4, 0.4)
+
+[node name="Background" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+texture = ExtResource("9_bg")
+centered = true
+scale = Vector2(2.5, 2.5)
 
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=1274424758]
 texture_filter = 1
