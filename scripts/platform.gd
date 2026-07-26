@@ -129,16 +129,19 @@ enum SpikeDirection { UP, DOWN, LEFT, RIGHT }
 		balloon_buoyancy = value
 		_update_balloon()
 
-## Spring stiffness. Higher = tighter tether, less bobbing. Too high
-## and the balloon oscillates too quickly; too low and it slingshots.
-@export_range(0.0, 1000.0, 5.0) var balloon_stiffness: float = 80.0:
+## Spring stiffness. Higher = tighter tether, less bobbing. The
+## equilibrium offset of the balloon from rest_length is buoyancy/stiffness
+## — at defaults (200/15) the balloon sits ~13 px above rest position,
+## giving a visible bob when gravity rotates. Raise for a stiffer feel,
+## lower for a slingshotty tether.
+@export_range(0.0, 1000.0, 5.0) var balloon_stiffness: float = 15.0:
 	set(value):
 		balloon_stiffness = value
 		_update_joint()
 
 ## Spring damping. Higher = oscillation settles faster. 0 = perpetual
-## oscillation. 8-15 is a good starting range.
-@export_range(0.0, 100.0, 0.5) var balloon_damping: float = 8.0:
+## oscillation. 3 gives a slight underdamped bob that settles in ~1s.
+@export_range(0.0, 100.0, 0.5) var balloon_damping: float = 3.0:
 	set(value):
 		balloon_damping = value
 		_update_joint()

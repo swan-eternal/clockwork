@@ -29,6 +29,13 @@ var _anti_gravity: Vector2 = Vector2.UP
 
 
 func _ready() -> void:
+	# Defensive: explicitly unfreeze in case platform.gd's setter chain
+	# hasn't run yet (Godot property-setting order isn't strictly
+	# guaranteed — child's properties may be set before the parent's
+	# setters that override them). platform.gd's motion_type setter
+	# re-applies the correct freeze state, so this is a one-shot fix
+	# that gets overwritten if motion_type=WEIGHT.
+	freeze = false
 	# Best-effort: try to connect at _ready, but if the Player isn't
 	# in the tree yet (sibling-order issue at scene load), _physics_process
 	# will retry each tick. Same lazy-init pattern as platform.gd.
@@ -48,8 +55,12 @@ func _physics_process(_delta: float) -> void:
 # Find the Player in the parent scene and subscribe to its
 # gravity_changed signal. No-op if already connected or the Player
 # isn't in the tree yet (caller retries next physics tick).
+#
+# Two-level parent walk: balloon.gd is a child of the platform
+# wrapper (Node2D), and the Player is a sibling of the platform in
+# the level scene — so the Player lives at the wrapper's grandparent.
 func _try_connect_to_player() -> void:
-	var player := get_parent().get_node_or_null("Player")
+	var player := get_parent().get_parent().get_node_or_null("Player")
 	if not player:
 		return
 	if not player.has_signal("gravity_changed"):

@@ -64,5 +64,5 @@ polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
 node_a = NodePath("../Balloon")
 node_b = NodePath("../AnimatableBody2D")
 rest_length = 70.0
-stiffness = 80.0
-damping = 8.0
+stiffness = 15.0
+damping = 3.0
