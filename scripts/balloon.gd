@@ -26,6 +26,15 @@ var buoyancy_strength: float = 200.0
 # starting state before the singleton is queried.
 var _anti_gravity: Vector2 = Vector2.UP
 
+# Debug flag for the off-axis-settling bug. While true, _physics_process
+# prints the current gravity, computed anti-gravity, positions, and
+# velocity every ~0.5 sec so we can see what the balloon is doing as
+# gravity rotates. Set to false once the bug is found and fixed.
+const DEBUG_OUTPUT: bool = true
+
+# Frame counter for the throttled debug print.
+var _debug_frame_count: int = 0
+
 
 func _ready() -> void:
 	# Defensive: explicitly unfreeze in case platform.gd's setter chain
@@ -49,3 +58,20 @@ func _physics_process(_delta: float) -> void:
 	var g: Vector2 = GravityManager.gravity_direction
 	_anti_gravity = -g.normalized()
 	apply_central_force(_anti_gravity * buoyancy_strength)
+	if DEBUG_OUTPUT:
+		_debug_frame_count += 1
+		if _debug_frame_count >= 30:
+			_debug_frame_count = 0
+			var body: Node = get_parent().get_node_or_null("AnimatableBody2D")
+			var body_pos: Vector2 = body.global_position if body else Vector2.ZERO
+			var joint: Node = get_parent().get_node_or_null("BalloonJoint")
+			var joint_stiffness: float = joint.stiffness if joint else -1.0
+			var joint_rest_length: float = joint.rest_length if joint else -1.0
+			var joint_damping: float = joint.damping if joint else -1.0
+			var length: float = (body_pos - global_position).length() if body else -1.0
+			var spring_disp: float = length - joint_rest_length if joint and body else -1.0
+			print("[Balloon] gravity=%s anti_gravity=%s buoyancy=%s pos=%s body_pos=%s offset=%s vel=%s | joint: stiffness=%s rest_len=%s damping=%s length=%s disp=%s" % [
+				g, _anti_gravity, buoyancy_strength, global_position, body_pos,
+				global_position - body_pos, linear_velocity,
+				joint_stiffness, joint_rest_length, joint_damping, length, spring_disp,
+			])
