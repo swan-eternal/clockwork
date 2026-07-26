@@ -9,21 +9,21 @@
 [ext_resource type="PackedScene" path="res://scenes/pause_menu.tscn" id="8_a3ng0"]
 [ext_resource type="Script" uid="uid://b8px15fmkadhi" path="res://scripts/level.gd" id="9_level"]
 [ext_resource type="PackedScene" uid="uid://cw7lam2x4pq1a" path="res://scenes/platform.tscn" id="9_xs0jc"]
-[ext_resource type="CompressedTexture2D" uid="uid://1taiedjl8wf8" path="res://assets/sprites/background/AlexZelnitskiyBG.png" id="10_bg"]
+[ext_resource type="Texture2D" uid="uid://1taiedjl8wf8" path="res://assets/sprites/background/AlexZelnitskiyBG.png" id="10_bg"]
 
 [node name="Main" type="Node2D" unique_id=2143881974]
 script = ExtResource("9_level")
 next_level_path = "res://scenes/levels/L4.tscn"
 
-[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+[node name="ParallaxBackground" type="ParallaxBackground" parent="." unique_id=739911707]
 
-[node name="ParallaxLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+[node name="ParallaxLayer" type="ParallaxLayer" parent="ParallaxBackground" unique_id=1345014130]
 motion_scale = Vector2(0.4, 0.4)
 
-[node name="Background" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
+[node name="Background" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer" unique_id=1358797236]
+position = Vector2(1222.9999, 443.99997)
+scale = Vector2(4.420815, 4.4208136)
 texture = ExtResource("10_bg")
-centered = true
-scale = Vector2(2.5, 2.5)
 
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=1274424758]
 texture_filter = 1

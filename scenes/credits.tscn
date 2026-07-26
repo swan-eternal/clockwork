@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://d1x4gwtg328lf"]
 
-[ext_resource type="Script" path="res://scripts/credits.gd" id="1_credits"]
+[ext_resource type="Script" uid="uid://vc0evrwhbsom" path="res://scripts/credits.gd" id="1_credits"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_normal"]
 content_margin_left = 16.0
@@ -90,6 +90,7 @@ swan-eternal, goose
 
 Additional art:
 https://nickstar010.itch.io/test-level-tileset 
+Alex Zelnitskiy - background
 
 Made with
 Godot Engine 4.7 (https://godotengine.org)
