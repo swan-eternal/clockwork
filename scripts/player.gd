@@ -259,8 +259,8 @@ func _physics_process(delta: float) -> void:
 	# The previous code re-evaluated every frame, which let a single
 	# missed is_on_wall() (e.g., mid-tick during a gravity rotation)
 	# unstick the player even when they were still glued to the wall.
-	if not _is_stuck_to_wall and is_on_wall() and _frames_since_disloged == 0:
-		_is_stuck_to_wall = _is_wall_tile_sticky()
+	if not _is_stuck_to_wall and (is_on_wall() or is_on_ceiling()) and _frames_since_disloged == 0:
+		_is_stuck_to_wall = _is_stickable_surface()
 	# Maintain coyote-time counter: 0 while grounded, +1 per air frame.
 	# Reset to 1000 after a successful jump (below) so coyote jumps
 	# can't chain without the player touching ground in between.
@@ -440,18 +440,26 @@ func _physics_process(delta: float) -> void:
 # false if not touching any wall, or if the wall tile doesn't have
 # sticky=true.
 #
-# Uses get_wall_normal() to find the wall direction: the tile is in
-# the direction opposite wall_normal, at a sample distance slightly
-# outside the player's collision radius (14px for the default 13px
-# circle).
-func _is_wall_tile_sticky() -> bool:
-	if not _tile_map or not is_on_wall():
+# Checks if the surface the player is currently touching (wall or
+# ceiling) is a sticky tile. The sample is taken slightly outside the
+# player's collision radius (14px for the default 13px circle) in the
+# direction INTO the surface, so it lands 1px inside the contact tile.
+# The wall case uses get_wall_normal(); the ceiling case uses
+# Vector2.DOWN (the ceiling's bottom surface normal points down).
+func _is_stickable_surface() -> bool:
+	if not _tile_map:
 		return false
-	var wall_normal := get_wall_normal()
-	if wall_normal == Vector2.ZERO:
+	if not is_on_wall() and not is_on_ceiling():
 		return false
-	# The wall tile is at global_position + (-wall_normal) * sample_distance.
-	var sample := global_position + (-wall_normal) * 14.0
+	var surface_normal: Vector2
+	if is_on_wall():
+		surface_normal = get_wall_normal()
+	else:  # is_on_ceiling()
+		surface_normal = Vector2.DOWN
+	if surface_normal == Vector2.ZERO:
+		return false
+	# The contact tile is at global_position + (-surface_normal) * sample_distance.
+	var sample := global_position + (-surface_normal) * 14.0
 	var local_pos := _tile_map.to_local(sample)
 	var cell := _tile_map.local_to_map(local_pos)
 	var tile_data := _tile_map.get_cell_tile_data(cell)
