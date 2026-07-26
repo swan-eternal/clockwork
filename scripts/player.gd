@@ -600,6 +600,12 @@ func _die() -> void:
 func _rotate_gravity_cw() -> void:
 	gravity_direction = gravity_direction.rotated(-PI / 2.0)
 	up_direction = -gravity_direction
+	# Publish to the global gravity singleton. The setter on
+	# GravityManager auto-emits its own gravity_changed signal, so
+	# consumers (platforms, balloons, etc.) can subscribe globally
+	# without depending on Player. We keep the local emit for any
+	# remaining listeners on Player.gravity_changed.
+	GravityManager.gravity_direction = gravity_direction
 	gravity_changed.emit(gravity_direction)
 	# Camera rotation: gravity_direction.angle() - PI/2 so the camera's
 	# local "up" points in the anti-gravity direction (Vector2.UP when

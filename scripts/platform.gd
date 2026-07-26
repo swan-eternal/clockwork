@@ -210,16 +210,13 @@ func _ready() -> void:
 	# on the editor's view of gravity).
 	if Engine.is_editor_hint():
 		return
-	# Listen to gravity changes from the Player. The Player is the
-	# source of truth for gravity_direction; initial sync applies the
-	# current gravity so the platform is moving immediately at scene
-	# load if gravity happens to be aligned with the rail.
-	var player := get_parent().get_node_or_null("Player")
-	if player:
-		if "gravity_direction" in player:
-			_on_gravity_changed(player.gravity_direction)
-		if player.has_signal("gravity_changed"):
-			player.gravity_changed.connect(_on_gravity_changed)
+	# Listen to gravity changes from the global GravityManager
+	# singleton (Player writes to it in _rotate_gravity_cw). Initial
+	# sync applies the current gravity so the platform is moving
+	# immediately at scene load if gravity happens to be aligned with
+	# the rail.
+	_on_gravity_changed(GravityManager.gravity_direction)
+	GravityManager.gravity_changed.connect(_on_gravity_changed)
 
 func _physics_process(delta: float) -> void:
 	# Skip motion in the editor -- @tool runs _physics_process, but
