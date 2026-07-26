@@ -52,6 +52,14 @@ const DEATH_HOLD_TIME := 0.2
 ## rather than a bouncy one.
 @export var FLOOR_SNAP_LENGTH: float = 4.0
 
+## Minimum downward speed (px/s, in the gravity direction) at which a
+## landing plays the landing SFX. Any value below this is considered a
+## "small bump" (walking off a curb, stepping onto a tile) and stays
+## silent. A normal jump lands at ~400 px/s (JUMP_VELOCITY magnitude
+## with gravity 1500), so 200 filters out tiny step-ups without
+## silencing ordinary landings.
+const LANDING_SOUND_MIN_SPEED: float = 200.0
+
 ## Direction of gravity in world coordinates. Starts pointing down
 ## (Vector2.DOWN = (0, 1)). Rotates 90° CW on each clock tick.
 var gravity_direction: Vector2 = Vector2.DOWN
@@ -144,6 +152,7 @@ var gravity_direction: Vector2 = Vector2.DOWN
 # matching .wav streams. play() called at the moment the action fires
 # (jump input handled below; death triggered in _die()).
 @onready var _jump_sound: AudioStreamPlayer = $JumpSound
+@onready var _land_sound: AudioStreamPlayer = $LandSound
 @onready var _die_sound: AudioStreamPlayer = $DieSound
 
 # Camera created programmatically (added as a child in _create_camera).
@@ -173,6 +182,10 @@ var _debug_accum: float = 0.0
 # Tracks the current camera rotation tween so a new one can kill the
 # old one if a tick fires mid-rotation.
 var _camera_tween: Tween = null
+# Tracks the floor state from the previous physics frame so the
+# landing-detection logic can fire on the airborne->grounded transition
+# (not on every frame the player happens to be on the floor).
+var _was_on_floor: bool = false
 # Death-in-progress flag. Set true when _die() starts so _physics_process
 # early-returns and input handlers ignore presses. Prevents double-fire
 # from the DeathDetector while the death animation is running.
@@ -257,6 +270,19 @@ func _physics_process(delta: float) -> void:
 		_frames_since_grounded = 0
 	else:
 		_frames_since_grounded += 1
+	# Capture velocity before move_and_slide so we can recover the
+	# impact speed (the velocity the player hit the ground with) even
+	# after move_and_slide zeroes the floor-normal component. Then
+	# detect the airborne->grounded transition and play the landing
+	# SFX if the impact speed in the gravity direction exceeds the
+	# threshold.
+	var pre_move_velocity := velocity
+	move_and_slide()
+	if not _was_on_floor and is_on_floor():
+		var impact_speed := pre_move_velocity.dot(gravity_direction)
+		if impact_speed > LANDING_SOUND_MIN_SPEED:
+			_land_sound.play()
+	_was_on_floor = is_on_floor()
 	# Horizontal input from left/right arrows or A/D.
 	var input_dir := Input.get_axis("ui_left", "ui_right")
 

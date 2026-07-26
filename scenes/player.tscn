@@ -61,4 +61,6 @@ volume_db = 9.0
 [node name="DieSound" type="AudioStreamPlayer" parent="." unique_id=770749955]
 stream = ExtResource("4_diesound")
 
+[node name="LandSound" type="AudioStreamPlayer" parent="." unique_id=1234567890]
+
 [connection signal="body_entered" from="DeathDetector" to="." method="_on_death_detector_body_entered"]
