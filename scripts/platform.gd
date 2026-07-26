@@ -49,8 +49,12 @@ enum Axis { X, Y }
 enum SpikeDirection { UP, DOWN, LEFT, RIGHT }
 
 ## Motion type. WEIGHT falls in the direction of gravity; BUOYANT
-## rises against gravity.
-@export var motion_type: MotionType = MotionType.WEIGHT
+## rises against gravity. Setter auto-toggles the balloon — BUOYANT
+## shows it, WEIGHT hides it (balloon_enabled must also be true).
+@export var motion_type: MotionType = MotionType.WEIGHT:
+	set(value):
+		motion_type = value
+		_update_balloon_visibility()
 
 ## Rail axis. X = horizontal. Y = vertical (default -- most platformer
 ## platforms are vertical). Setter updates the rail preview and the
@@ -108,6 +112,53 @@ enum SpikeDirection { UP, DOWN, LEFT, RIGHT }
 		spike_direction = value
 		_update_spikes()
 
+## Per-instance kill switch for the balloon. The motion_type setter
+## auto-toggles visibility (BUOYANT shows, WEIGHT hides) — set this
+## to false on a specific buoyant platform to permanently hide the
+## balloon (e.g., for design reasons or to save physics cost).
+@export var balloon_enabled: bool = true:
+	set(value):
+		balloon_enabled = value
+		_update_balloon_visibility()
+
+## Buoyancy force magnitude. The force pulls the balloon against the
+## current gravity each physics tick; the spring joint counters it so
+## the balloon settles near rest_length offset from the platform center.
+@export_range(0.0, 1000.0, 10.0) var balloon_buoyancy: float = 200.0:
+	set(value):
+		balloon_buoyancy = value
+		_update_balloon()
+
+## Spring stiffness. Higher = tighter tether, less bobbing. Too high
+## and the balloon oscillates too quickly; too low and it slingshots.
+@export_range(0.0, 1000.0, 5.0) var balloon_stiffness: float = 80.0:
+	set(value):
+		balloon_stiffness = value
+		_update_joint()
+
+## Spring damping. Higher = oscillation settles faster. 0 = perpetual
+## oscillation. 8-15 is a good starting range.
+@export_range(0.0, 100.0, 0.5) var balloon_damping: float = 8.0:
+	set(value):
+		balloon_damping = value
+		_update_joint()
+
+## Distance from the platform center to the balloon center at rest.
+## Larger = balloon floats further from the platform.
+@export_range(10.0, 200.0, 5.0) var balloon_rest_length: float = 70.0:
+	set(value):
+		balloon_rest_length = value
+		_update_joint()
+		_update_balloon_string()
+
+## Balloon visual + collision-shape radius. The collision shape is
+## required by RigidBody2D for mass calculation, but the balloon has
+## no actual collision (collision_layer = 0 in the scene file).
+@export_range(4.0, 64.0, 1.0) var balloon_radius: float = 16.0:
+	set(value):
+		balloon_radius = value
+		_update_balloon_shape()
+
 # AnimatableBody2D and Line2D are looked up via get_node_or_null() in
 # _update_position() / _update_rail_preview() rather than cached as
 # @onready vars. This is so the setters work in the editor (where
@@ -141,6 +192,14 @@ func _ready() -> void:
 	_t = clampf(starting_position, 0.0, 1.0)
 	_update_position()
 	_update_rail_preview()
+	# Balloon: push current @export values to the balloon node and
+	# BalloonJoint, then apply the visibility gate based on motion_type
+	# and balloon_enabled. Same get_node_or_null pattern as the spike /
+	# rail helpers — works in the editor and at runtime.
+	_update_balloon()
+	_update_joint()
+	_update_balloon_shape()
+	_update_balloon_visibility()
 	# Runtime-only: signal connection + initial gravity sync. Gate
 	# with is_editor_hint so @tool doesn't connect signals in the
 	# editor (they don't fire there anyway, but connecting is wasted
@@ -164,11 +223,13 @@ func _physics_process(delta: float) -> void:
 	# we only want motion at runtime.
 	if Engine.is_editor_hint():
 		return
-	if not _active:
-		return
-	_t += _direction * (motion_speed / _rail_length) * delta
-	_t = clampf(_t, 0.0, 1.0)
-	_update_position()
+	if _active:
+		_t += _direction * (motion_speed / _rail_length) * delta
+		_t = clampf(_t, 0.0, 1.0)
+		_update_position()
+	# Always update the balloon string (even when the platform is
+	# stationary) so the tether tracks the balloon's live position.
+	_update_balloon_string()
 
 func _on_gravity_changed(new_gravity: Vector2) -> void:
 	# Project gravity onto rail axis. |dot| near 1 = parallel; near 0
@@ -356,3 +417,99 @@ func _update_rail_preview() -> void:
 	var preview := get_node_or_null("RailPreview") as Line2D
 	if preview:
 		preview.points = [Vector2.ZERO, _rail_direction * _rail_length]
+
+
+# ---- Balloon ----
+
+# Show/hide the balloon and its joint/string based on motion_type and
+# balloon_enabled. The balloon shows when BOTH conditions are true;
+# setting motion_type to WEIGHT (or balloon_enabled to false) hides
+# the balloon, freezes the RigidBody2D (no drift, no wasted physics),
+# and disables the joint + string.
+#
+# Called from the motion_type setter (auto-toggle) and the
+# balloon_enabled setter (per-instance kill switch). Also called from
+# _ready so the initial state matches the scene's motion_type value.
+func _update_balloon_visibility() -> void:
+	var balloon := get_node_or_null("Balloon") as RigidBody2D
+	if not balloon:
+		return
+	var visible_state := motion_type == MotionType.BUOYANT and balloon_enabled
+	balloon.visible = visible_state
+	balloon.freeze = not visible_state
+	var joint := get_node_or_null("BalloonJoint") as DampedSpringJoint2D
+	if joint:
+		joint.enabled = visible_state
+	var string_node := get_node_or_null("AnimatableBody2D/BalloonString") as Line2D
+	if string_node:
+		string_node.visible = visible_state
+
+
+# Push the current balloon_buoyancy value to the Balloon node. Called
+# from the balloon_buoyancy setter and at _ready.
+func _update_balloon() -> void:
+	var balloon := get_node_or_null("Balloon")
+	if balloon and "buoyancy_strength" in balloon:
+		balloon.buoyancy_strength = balloon_buoyancy
+
+
+# Push the current spring tuning to the BalloonJoint. Called from the
+# stiffness/damping/rest_length setters and at _ready.
+func _update_joint() -> void:
+	var joint := get_node_or_null("BalloonJoint") as DampedSpringJoint2D
+	if not joint:
+		return
+	joint.stiffness = balloon_stiffness
+	joint.damping = balloon_damping
+	joint.rest_length = balloon_rest_length
+
+
+# Apply the current balloon_radius to the Balloon's collision shape
+# (required by RigidBody2D for mass calc — no actual collision since
+# collision_layer = 0) and visual polygon.
+func _update_balloon_shape() -> void:
+	var balloon := get_node_or_null("Balloon")
+	if not balloon:
+		return
+	var shape := balloon.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape and shape.shape is CircleShape2D:
+		(shape.shape as CircleShape2D).radius = balloon_radius
+	var visual := balloon.get_node_or_null("BalloonVisual") as Polygon2D
+	if visual:
+		visual.polygon = _circle_polygon(balloon_radius)
+
+
+# 32-sided circle approximation for the balloon visual placeholder.
+# Replaced with pixel art by Jason later; this is a clean placeholder
+# that reads as circular at typical viewing zoom.
+func _circle_polygon(radius: float) -> PackedVector2Array:
+	const SIDES := 32
+	var points: Array[Vector2] = []
+	for i in SIDES:
+		var angle := TAU * float(i) / float(SIDES)
+		points.append(Vector2(cos(angle), sin(angle)) * radius)
+	return PackedVector2Array(points)
+
+
+# Update the balloon string (Line2D child of AnimatableBody2D) to
+# connect the platform center to the balloon's current position.
+# The string is in body-local space — Vector2.ZERO is the platform
+# center, the second point is the balloon's position in the body's
+# local frame.
+#
+# Skipped when the string is hidden (e.g., balloon is frozen because
+# motion_type is WEIGHT) to avoid wasted work and stale-line flicker.
+func _update_balloon_string() -> void:
+	var string_node := get_node_or_null("AnimatableBody2D/BalloonString") as Line2D
+	if not string_node or not string_node.visible:
+		return
+	var balloon := get_node_or_null("Balloon") as RigidBody2D
+	if not balloon:
+		return
+	var body := get_node_or_null("AnimatableBody2D") as AnimatableBody2D
+	if not body:
+		return
+	string_node.points = PackedVector2Array([
+		Vector2.ZERO,
+		body.to_local(balloon.global_position),
+	])
