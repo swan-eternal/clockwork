@@ -249,7 +249,7 @@ func _update_spikes() -> void:
 			collision_node.polygon = _spike_collision_polygon(size, spike_direction)
 			collision_node.disabled = false
 		if visual_node:
-			visual_node.polygons = _spike_visual_polygons(size, spike_direction)
+			visual_node.polygon = _spike_visual_polygon(size, spike_direction)
 			visual_node.visible = true
 	else:
 		if collision_node:
@@ -290,66 +290,56 @@ func _spike_collision_polygon(size: Vector2, direction: SpikeDirection) -> Packe
 			points.append(Vector2(size.x / 2.0, size.y / 2.0))
 	return PackedVector2Array(points)
 
-# Build the visual polygons for a given platform size and direction.
-# Returns 3 separate triangles (one per spike) so they render correctly
-# in Polygon2D via the `polygons` property. A single concave polygon
-# would render as overlapping triangles via triangle-fan decomposition,
-# but 3 separate triangles render cleanly. Each triangle has its base
-# along the platform's edge and its peak 30 pixels out.
-func _spike_visual_polygons(size: Vector2, direction: SpikeDirection) -> Array[PackedVector2Array]:
-	var polygons: Array[PackedVector2Array] = []
+# Build the visual polygon for a given platform size and direction.
+# Returns a single zigzag polygon (3 peaks along the chosen side, each
+# 30 pixels out from the platform's edge). The polygon is a single
+# closed shape assigned to Polygon2D.polygon (singular); the visual
+# is meant for display only, so any rendering artifacts from the
+# concave polygon are acceptable. The collision uses a separate
+# rectangle polygon (see _spike_collision_polygon) that Godot can
+# actually decompose.
+func _spike_visual_polygon(size: Vector2, direction: SpikeDirection) -> PackedVector2Array:
+	var points: Array[Vector2] = []
 	const PEAK_DISTANCE := 30.0
 	const NUM_TRIANGLES := 3
 	match direction:
 		SpikeDirection.UP:
 			var edge_y := -size.y / 2.0
 			var tri_w := size.x / NUM_TRIANGLES
-			for i in range(NUM_TRIANGLES):
-				var base_start := -size.x / 2.0 + i * tri_w
-				var base_end := base_start + tri_w
-				var peak_x := (base_start + base_end) / 2.0
-				polygons.append(PackedVector2Array([
-					Vector2(base_start, edge_y),
-					Vector2(peak_x, edge_y - PEAK_DISTANCE),
-					Vector2(base_end, edge_y)
-				]))
+			for i in range(NUM_TRIANGLES + 1):
+				var base_x := -size.x / 2.0 + i * tri_w
+				points.append(Vector2(base_x, edge_y))
+				if i < NUM_TRIANGLES:
+					var peak_x := -size.x / 2.0 + (i + 0.5) * tri_w
+					points.append(Vector2(peak_x, edge_y - PEAK_DISTANCE))
 		SpikeDirection.DOWN:
 			var edge_y := size.y / 2.0
 			var tri_w := size.x / NUM_TRIANGLES
-			for i in range(NUM_TRIANGLES):
-				var base_start := -size.x / 2.0 + i * tri_w
-				var base_end := base_start + tri_w
-				var peak_x := (base_start + base_end) / 2.0
-				polygons.append(PackedVector2Array([
-					Vector2(base_start, edge_y),
-					Vector2(peak_x, edge_y + PEAK_DISTANCE),
-					Vector2(base_end, edge_y)
-				]))
+			for i in range(NUM_TRIANGLES + 1):
+				var base_x := -size.x / 2.0 + i * tri_w
+				points.append(Vector2(base_x, edge_y))
+				if i < NUM_TRIANGLES:
+					var peak_x := -size.x / 2.0 + (i + 0.5) * tri_w
+					points.append(Vector2(peak_x, edge_y + PEAK_DISTANCE))
 		SpikeDirection.LEFT:
 			var edge_x := -size.x / 2.0
 			var tri_h := size.y / NUM_TRIANGLES
-			for i in range(NUM_TRIANGLES):
-				var base_start := -size.y / 2.0 + i * tri_h
-				var base_end := base_start + tri_h
-				var peak_y := (base_start + base_end) / 2.0
-				polygons.append(PackedVector2Array([
-					Vector2(edge_x, base_start),
-					Vector2(edge_x - PEAK_DISTANCE, peak_y),
-					Vector2(edge_x, base_end)
-				]))
+			for i in range(NUM_TRIANGLES + 1):
+				var base_y := -size.y / 2.0 + i * tri_h
+				points.append(Vector2(edge_x, base_y))
+				if i < NUM_TRIANGLES:
+					var peak_y := -size.y / 2.0 + (i + 0.5) * tri_h
+					points.append(Vector2(edge_x - PEAK_DISTANCE, peak_y))
 		SpikeDirection.RIGHT:
 			var edge_x := size.x / 2.0
 			var tri_h := size.y / NUM_TRIANGLES
-			for i in range(NUM_TRIANGLES):
-				var base_start := -size.y / 2.0 + i * tri_h
-				var base_end := base_start + tri_h
-				var peak_y := (base_start + base_end) / 2.0
-				polygons.append(PackedVector2Array([
-					Vector2(edge_x, base_start),
-					Vector2(edge_x + PEAK_DISTANCE, peak_y),
-					Vector2(edge_x, base_end)
-				]))
-	return polygons
+			for i in range(NUM_TRIANGLES + 1):
+				var base_y := -size.y / 2.0 + i * tri_h
+				points.append(Vector2(edge_x, base_y))
+				if i < NUM_TRIANGLES:
+					var peak_y := -size.y / 2.0 + (i + 0.5) * tri_h
+					points.append(Vector2(edge_x + PEAK_DISTANCE, peak_y))
+	return PackedVector2Array(points)
 
 # Updates the platform body's local position along the rail. Looks up
 # the body via get_node_or_null() (not @onready) so this works in the
