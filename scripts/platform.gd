@@ -437,9 +437,9 @@ func _update_balloon_visibility() -> void:
 	var visible_state := motion_type == MotionType.BUOYANT and balloon_enabled
 	balloon.visible = visible_state
 	balloon.freeze = not visible_state
-	var joint := get_node_or_null("BalloonJoint") as DampedSpringJoint2D
-	if joint:
-		joint.enabled = visible_state
+	# DampedSpringJoint2D has no `enabled` property in Godot 4. A frozen
+	# RigidBody2D doesn't respond to joint forces, so the balloon.freeze
+	# above is enough to disable the joint — no separate gate needed.
 	var string_node := get_node_or_null("AnimatableBody2D/BalloonString") as Line2D
 	if string_node:
 		string_node.visible = visible_state
