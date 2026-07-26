@@ -405,7 +405,12 @@ func _physics_process(delta: float) -> void:
 	# Skipped when stuck to a wall -- the player defies gravity while
 	# clinging. The sticky attachment holds them in place.
 	if _is_stuck_to_wall:
-		pass  # No gravity, no slope slide -- player locked to wall.
+		# Zero momentum so the player comes to a complete stop the moment
+		# they stick. Without this, the existing velocity (e.g., horizontal
+		# momentum from a jump past the sticky block) carries the player
+		# along the wall until something else stops them -- the stick
+		# registers but the player keeps moving.
+		velocity = Vector2.ZERO
 	elif not is_on_floor():
 		velocity += gravity_direction * gravity_strength * delta
 	else:
