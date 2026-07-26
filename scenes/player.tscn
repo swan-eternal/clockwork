@@ -32,6 +32,10 @@ radius = 13.0
 
 [node name="Player" type="CharacterBody2D" unique_id=1637235894]
 script = ExtResource("1_player")
+RUN_ACCEL = 300.0
+JUMP_VELOCITY = -200.0
+gravity_strength = 1000.0
+GROUND_DECEL = 1999.0
 camera_zoom = Vector2(0.75, 0.75)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1204896840]

@@ -22,7 +22,7 @@ collision_layer = 2
 collision_mask = 0
 
 [node name="SpikeCollision" type="CollisionPolygon2D" parent="AnimatableBody2D/SpikesArea"]
-disabled = true
+collision_layer = 2
 
 [node name="SpikeVisual" type="Polygon2D" parent="AnimatableBody2D/SpikesArea"]
 color = Color(0.8, 0.2, 0.2, 1)

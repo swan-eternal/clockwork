@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://bunjpfq0ikwr"]
+
+[ext_resource type="PackedScene" path="res://scenes/level_select.tscn" id="1_qi77a"]
+
+[node name="LevelSelect" unique_id=1273333366 instance=ExtResource("1_qi77a")]
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" parent="." index="0"]
+visible = false
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CenterContainer" parent="." index="1"]
+visible = false
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" parent="CenterContainer" index="0"]
+visible = false
+
+[node name="Title" parent="CenterContainer/VBox" index="0"]
+visible = false
+
+[node name="L1Button" parent="CenterContainer/VBox" index="1"]
+visible = false
+
+[node name="L2Button" parent="CenterContainer/VBox" index="2"]
+visible = false
+
+[node name="L3Button" parent="CenterContainer/VBox" index="3"]
+visible = false
+
+[node name="BackButton" parent="CenterContainer/VBox" index="4"]
+visible = false

@@ -1,6 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3 uid="uid://d1x4gwtg328lf"]
 
-[ext_resource type="Script" uid="uid://cd4cyflr3fwle" path="res://scripts/credits.gd" id="1_credits"]
+[ext_resource type="Script" uid="uid://cd4cyflr3fwle" path="res://scripts/main_menu.gd" id="1_credits"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_normal"]
 content_margin_left = 16.0
@@ -35,7 +35,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[node name="Credits" type="Control"]
+[node name="Credits" type="Control" unique_id=273995759]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -44,7 +44,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_credits")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=298534883]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -54,7 +54,7 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.1, 0.1, 0.15, 1)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1001826114]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -62,44 +62,47 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBox" type="VBoxContainer" parent="CenterContainer"]
+[node name="VBox" type="VBoxContainer" parent="CenterContainer" unique_id=1452544392]
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="Title" type="Label" parent="CenterContainer/VBox"]
+[node name="Title" type="Label" parent="CenterContainer/VBox" unique_id=2129859849]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 48
 text = "Credits"
 horizontal_alignment = 1
 
-[node name="GameTitle" type="Label" parent="CenterContainer/VBox"]
+[node name="GameTitle" type="Label" parent="CenterContainer/VBox" unique_id=830820812]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
 theme_override_font_sizes/font_size = 22
 text = "Clockwork"
 horizontal_alignment = 1
 
-[node name="CreditsBody" type="Label" parent="CenterContainer/VBox"]
+[node name="CreditsBody" type="Label" parent="CenterContainer/VBox" unique_id=2075331810]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
 theme_override_font_sizes/font_size = 16
 text = "Design, Code, and Art
-Jason Swan
+swan-eternal, goose
+
+Additional art:
+https://nickstar010.itch.io/test-level-tileset 
 
 Made with
 Godot Engine 4.7 (https://godotengine.org)
 
 Music
-[Public domain / CC0 tracks — to be added]
+nojisuma - Clock
 
 Special Thanks
 The GMTK Game Jam community"
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="BackButton" type="Button" parent="CenterContainer/VBox"]
+[node name="BackButton" type="Button" parent="CenterContainer/VBox" unique_id=1417021795]
 custom_minimum_size = Vector2(220, 50)
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)

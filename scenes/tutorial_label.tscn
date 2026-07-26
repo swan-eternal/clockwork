@@ -1,12 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://c7eey2nh8lytg"]
 
-[ext_resource type="Script" path="res://scripts/tutorial_label.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://3glbh6xd4h1m" path="res://scripts/tutorial_label.gd" id="1_script"]
 
-[node name="TutorialLabel" type="Node2D"]
+[node name="TutorialLabel" type="Node2D" unique_id=1974647556]
 script = ExtResource("1_script")
-text = "Tutorial text — edit me"
-font_size = 24
-outline_size = 4
-pixel_size = 1.0
-font_color = Color(1, 1, 1, 1)
-outline_color = Color(0, 0, 0, 1)
+font_size = 20

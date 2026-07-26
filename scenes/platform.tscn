@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cw7lam2x4pq1a"]
 
 [ext_resource type="Script" uid="uid://dhu8wdvruo67" path="res://scripts/platform.gd" id="1_platform"]
-[ext_resource type="Script" path="res://scripts/balloon.gd" id="2_balloon"]
+[ext_resource type="Script" uid="uid://dm0ru7cseebin" path="res://scripts/balloon.gd" id="2_balloon"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(30, 30)
@@ -11,6 +11,9 @@ radius = 16.0
 
 [node name="Platform" type="Node2D" unique_id=775245455]
 script = ExtResource("1_platform")
+balloon_buoyancy = 150.0
+balloon_stiffness = 20.0
+balloon_rest_length = 50.0
 
 [node name="AnimatableBody2D" type="AnimatableBody2D" parent="." unique_id=167472732]
 
@@ -29,9 +32,10 @@ collision_mask = 0
 disabled = true
 
 [node name="SpikeVisual" type="Polygon2D" parent="AnimatableBody2D/SpikesArea" unique_id=1792285445]
+visible = false
 color = Color(0.8, 0.2, 0.2, 1)
 
-[node name="BalloonString" type="Line2D" parent="AnimatableBody2D" unique_id=2500000034]
+[node name="BalloonString" type="Line2D" parent="AnimatableBody2D" unique_id=-1794967262]
 visible = false
 points = PackedVector2Array(0, 0, 0, -70)
 width = 1.5
@@ -42,27 +46,22 @@ points = PackedVector2Array(0, 0, 0, 96)
 width = 2.0
 default_color = Color(1, 1, 0.5, 0.8)
 
-[node name="Balloon" type="RigidBody2D" parent="." unique_id=2500000030]
+[node name="Balloon" type="RigidBody2D" parent="." unique_id=-1794967266]
 visible = false
-freeze = true
 position = Vector2(0, -70)
-mass = 0.3
-gravity_scale = 0.0
-linear_damp = 3.0
 collision_layer = 0
 collision_mask = 0
+mass = 0.3
+gravity_scale = 0.0
+freeze = true
+linear_damp = 3.0
+can_sleep = false
 script = ExtResource("2_balloon")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Balloon" unique_id=2500000031]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Balloon" unique_id=-1794967265]
 shape = SubResource("CircleShape2D_balloon")
 
-[node name="BalloonVisual" type="Polygon2D" parent="Balloon" unique_id=2500000032]
-color = Color(1.0, 0.35, 0.35, 1)
-polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+[node name="BalloonVisual" type="Polygon2D" parent="Balloon" unique_id=-1794967264]
+color = Color(1, 0.35, 0.35, 1)
+polygon = PackedVector2Array(16, 0, 15.692564, 3.1214452, 14.782072, 6.122935, 13.303514, 8.889124, 11.313708, 11.313708, 8.889124, 13.303514, 6.122935, 14.782072, 3.1214452, 15.692564, 9.797175e-16, 16, -3.1214452, 15.692564, -6.122935, 14.782072, -8.889124, 13.303514, -11.313708, 11.313708, -13.303514, 8.889124, -14.782072, 6.122935, -15.692564, 3.1214452, -16, 1.959435e-15, -15.692564, -3.1214452, -14.782072, -6.122935, -13.303514, -8.889124, -11.313708, -11.313708, -8.889124, -13.303514, -6.122935, -14.782072, -3.1214452, -15.692564, -2.9391522e-15, -16, 3.1214452, -15.692564, 6.122935, -14.782072, 8.889124, -13.303514, 11.313708, -11.313708, 13.303514, -8.889124, 14.782072, -6.122935, 15.692564, -3.1214452)
 
-[node name="BalloonJoint" type="DampedSpringJoint2D" parent="." unique_id=2500000033]
-node_a = NodePath("../Balloon")
-node_b = NodePath("../AnimatableBody2D")
-rest_length = 70.0
-stiffness = 15.0
-damping = 3.0
