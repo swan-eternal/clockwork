@@ -253,16 +253,14 @@ func _physics_process(delta: float) -> void:
 	# player can immediately re-stick on the same tile after dislodging).
 	if _frames_since_disloged > 0:
 		_frames_since_disloged -= 1
-	# Detect sticky: if the wall we're currently touching has a tile
-	# marked sticky=true, set _is_stuck_to_wall. Uses the previous
-	# frame's wall collision (move_and_slide updated is_on_wall last
-	# frame -- this 1-frame delay is imperceptible at 60fps). Skipped
-	# during the refraction cooldown so a dislodge arc can clear the
-	# wall before another attachment is allowed.
-	if is_on_wall() and _frames_since_disloged == 0:
+	# Detect sticky on initial wall contact only. Once stuck, the
+	# player stays stuck until jump dislodges them (the jump branch
+	# sets _is_stuck_to_wall = false and starts the refraction cooldown).
+	# The previous code re-evaluated every frame, which let a single
+	# missed is_on_wall() (e.g., mid-tick during a gravity rotation)
+	# unstick the player even when they were still glued to the wall.
+	if not _is_stuck_to_wall and is_on_wall() and _frames_since_disloged == 0:
 		_is_stuck_to_wall = _is_wall_tile_sticky()
-	else:
-		_is_stuck_to_wall = false
 	# Maintain coyote-time counter: 0 while grounded, +1 per air frame.
 	# Reset to 1000 after a successful jump (below) so coyote jumps
 	# can't chain without the player touching ground in between.
